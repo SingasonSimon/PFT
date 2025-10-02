@@ -29,7 +29,7 @@ class _AddBillScreenState extends State<AddBillScreen> {
         final dbHelper = DatabaseHelper();
         final billName = _nameController.text.trim();
 
-        final existingBills = await dbHelper.getBills(_currentUser!.uid);
+        final existingBills = await dbHelper.getBills(_currentUser.uid);
         final isDuplicate = existingBills.any((bill) => bill.name.toLowerCase() == billName.toLowerCase());
 
         if (isDuplicate) {
@@ -46,7 +46,7 @@ class _AddBillScreenState extends State<AddBillScreen> {
           dueDate: _selectedDate,
         );
 
-        final newBillId = await dbHelper.addBill(newBill, _currentUser!.uid);
+        final newBillId = await dbHelper.addBill(newBill, _currentUser.uid);
 
         final billWithId = Bill(
           id: newBillId,

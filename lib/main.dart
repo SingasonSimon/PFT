@@ -12,7 +12,7 @@ import 'theme_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/reports_screen.dart';
 import 'screens/profile_screen.dart';
-import 'screens/savings_screen.dart';
+// No longer importing savings_screen.dart
 
 final NotificationService notificationService = NotificationService();
 
@@ -78,10 +78,10 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
+  // --- THE FIX IS HERE: SavingsScreen is removed ---
   static const List<Widget> _widgetOptions = <Widget>[
     HomeScreen(),
     ReportsScreen(),
-    SavingsScreen(),
     ProfileScreen(),
   ];
 
@@ -98,7 +98,8 @@ class _MainScreenState extends State<MainScreen> {
         child: _widgetOptions.elementAt(_selectedIndex),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
+        // We can go back to default type for 3 items
+        type: BottomNavigationBarType.shifting, 
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: Icon(Icons.dashboard),
@@ -109,16 +110,13 @@ class _MainScreenState extends State<MainScreen> {
             label: 'Reports',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.savings),
-            label: 'Savings',
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.settings),
             label: 'Settings',
           ),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Theme.of(context).colorScheme.primary,
+        unselectedItemColor: Colors.grey, // Good to specify for this type
         onTap: _onItemTapped,
       ),
     );

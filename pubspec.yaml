@@ -49,6 +49,8 @@ dependencies:
   flutter_pin_code_fields: ^2.2.0
   local_auth: ^2.2.0
   flutter_local_notifications: ^17.2.1
+  telephony: ^0.2.0
+  permission_handler: ^11.3.1
   
 
 dev_dependencies:

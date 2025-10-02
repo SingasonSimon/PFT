@@ -22,14 +22,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late Future<List<Map<String, dynamic>>> _categoriesFuture;
   final _categoryController = TextEditingController();
   final _nameController = TextEditingController();
-  final _dailyLimitController = TextEditingController();
+
 
   User? get currentUser => _auth.currentUser;
 
   bool _isLoggingOut = false;
   String _selectedCurrency = 'KSh';
   bool _isPasscodeEnabled = false;
-  double _dailyLimit = 0.0;
+  // --- REMOVED: Daily Limit variable ---
 
   @override
   void initState() {
@@ -43,43 +43,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       _selectedCurrency = prefs.getString('currency') ?? 'KSh';
       _isPasscodeEnabled = prefs.getString('passcode') != null;
-      _dailyLimit = prefs.getDouble('dailyLimit') ?? 0.0;
+      // --- REMOVED: No longer loading daily limit ---
     });
   }
-
-  void _showDailyLimitDialog() {
-    _dailyLimitController.text = _dailyLimit > 0 ? _dailyLimit.toStringAsFixed(0) : '';
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Set Daily Spending Limit'),
-        content: TextField(
-          controller: _dailyLimitController,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Limit Amount',
-            hintText: '0 to disable',
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () async {
-              final newLimit = double.tryParse(_dailyLimitController.text) ?? 0.0;
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setDouble('dailyLimit', newLimit);
-              setState(() {
-                _dailyLimit = newLimit;
-              });
-              Navigator.pop(context);
-              Fluttertoast.showToast(msg: 'Daily limit updated.');
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
+  
+  // --- REMOVED: The _showDailyLimitDialog function is gone ---
 
   Future<void> _saveCurrencyPreference(String currency) async {
     final prefs = await SharedPreferences.getInstance();
@@ -324,13 +292,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 }
               },
             ),
-            
-          ListTile(
-            leading: const Icon(Icons.shield_outlined),
-            title: const Text('Daily Spending Limit'),
-            subtitle: Text(_dailyLimit > 0 ? '$_selectedCurrency ${_dailyLimit.toStringAsFixed(0)}' : 'Not set'),
-            onTap: _showDailyLimitDialog,
-          ),
+
+          // --- REMOVED: Daily Limit setting is gone ---
 
           ListTile(
             leading: const Icon(Icons.money),

@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Import
+import 'package:firebase_auth/firebase_auth.dart';
 import '../helpers/database_helper.dart';
 import '../helpers/pdf_helper.dart';
 import '../models/transaction.dart' as model;
@@ -19,7 +19,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   late Future<Map<String, dynamic>> _reportDataFuture;
   final String _currencySymbol = 'KSh';
   final compactFormatter = NumberFormat.compact();
-  final User? _currentUser = FirebaseAuth.instance.currentUser; // Get user
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
 
   @override
   void initState() {
@@ -28,12 +28,47 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Future<Map<String, dynamic>> _prepareReportData() async {
-    if (_currentUser == null) return {}; // Return empty if no user
+    if (_currentUser == null) return {};
     final dbHelper = DatabaseHelper();
     final transactions = await dbHelper.getTransactions(_currentUser.uid);
     final categories = await dbHelper.getCategories(_currentUser.uid);
     final categoryMap = {for (var cat in categories) cat['id'] as int: cat['name'] as String};
     return {'transactions': transactions, 'categoryMap': categoryMap};
+  }
+
+  // --- NEW: Function to calculate Profit/Loss and get a tip ---
+  ({double profitLoss, String tip, Color color}) _getProfitLossAndTip(List<model.Transaction> transactions) {
+    // We'll calculate for the current month
+    final now = DateTime.now();
+    final firstDayOfMonth = DateTime(now.year, now.month, 1);
+
+    final monthlyTransactions = transactions.where((t) {
+      return DateTime.parse(t.date).isAfter(firstDayOfMonth);
+    }).toList();
+
+    double income = monthlyTransactions.where((t) => t.type == 'income').fold(0.0, (sum, t) => sum + t.amount);
+    double expenses = monthlyTransactions.where((t) => t.type == 'expense').fold(0.0, (sum, t) => sum + t.amount);
+    double profitLoss = income - expenses;
+
+    if (profitLoss > 0) {
+      return (
+        profitLoss: profitLoss,
+        tip: 'Great job! You are in profit. Consider moving some to your savings.',
+        color: Colors.green
+      );
+    } else if (profitLoss < 0) {
+      return (
+        profitLoss: profitLoss,
+        tip: 'You\'re running at a loss this month. Review your expenses to find potential savings.',
+        color: Colors.red
+      );
+    } else {
+      return (
+        profitLoss: 0,
+        tip: 'You\'ve broken even. Keep a close eye on your expenses.',
+        color: Colors.orange
+      );
+    }
   }
 
   Map<String, double> _prepareExpenseData(List<model.Transaction> transactions, Map<int, String> categoryMap) {
@@ -88,6 +123,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
           final expenseData = _prepareExpenseData(allTransactions, categoryMap);
           final barChartData = _prepareBarChartData(allTransactions);
           final totalExpenses = expenseData.values.fold(0.0, (sum, amount) => sum + amount);
+          
+          // --- NEW: Get the profit/loss data ---
+          final profitLossData = _getProfitLossAndTip(allTransactions);
 
           return Column(
             children: [
@@ -95,8 +133,39 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(16.0),
                   children: [
+                    // --- NEW: Profit/Loss & Tip Card ---
+                    Card(
+                      color: profitLossData.color.withOpacity(0.15),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            Text(
+                              'This Month\'s Profit/Loss',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '$_currencySymbol ${NumberFormat.currency(locale: 'en_US', symbol: '').format(profitLossData.profitLoss)}',
+                              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: profitLossData.color,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              profitLossData.tip,
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
                     const Text(
-                      'Income vs. Expenses',
+                      'Income vs. Expenses (All Time)',
                       style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
                     ),
@@ -168,7 +237,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
                     if (expenseData.isNotEmpty) ...[
                       const Text(
-                        'Expense Breakdown by Category',
+                        'Expense Breakdown by Category (All Time)',
                         style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                         textAlign: TextAlign.center,
                       ),
