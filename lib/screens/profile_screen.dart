@@ -1,0 +1,466 @@
+// lib/screens/profile_screen.dart
+
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import '../helpers/database_helper.dart';
+import '../theme_provider.dart';
+import 'passcode_screen.dart';
+
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  final dbHelper = DatabaseHelper();
+  final _auth = FirebaseAuth.instance;
+  late Future<List<Map<String, dynamic>>> _categoriesFuture;
+  final _categoryController = TextEditingController();
+  final _nameController = TextEditingController();
+  final _dailyLimitController = TextEditingController();
+
+  User? get currentUser => _auth.currentUser;
+
+  bool _isLoggingOut = false;
+  String _selectedCurrency = 'KSh';
+  bool _isPasscodeEnabled = false;
+  double _dailyLimit = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshCategoryList();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _selectedCurrency = prefs.getString('currency') ?? 'KSh';
+      _isPasscodeEnabled = prefs.getString('passcode') != null;
+      _dailyLimit = prefs.getDouble('dailyLimit') ?? 0.0;
+    });
+  }
+
+  void _showDailyLimitDialog() {
+    _dailyLimitController.text = _dailyLimit > 0 ? _dailyLimit.toStringAsFixed(0) : '';
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Set Daily Spending Limit'),
+        content: TextField(
+          controller: _dailyLimitController,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Limit Amount',
+            hintText: '0 to disable',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              final newLimit = double.tryParse(_dailyLimitController.text) ?? 0.0;
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setDouble('dailyLimit', newLimit);
+              setState(() {
+                _dailyLimit = newLimit;
+              });
+              Navigator.pop(context);
+              Fluttertoast.showToast(msg: 'Daily limit updated.');
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveCurrencyPreference(String currency) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('currency', currency);
+    setState(() {
+      _selectedCurrency = currency;
+    });
+  }
+  
+  void _showUpdateNameDialog() {
+    _nameController.text = currentUser?.displayName ?? '';
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Update Your Name'),
+        content: TextField(
+          controller: _nameController,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Full Name'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              if (_nameController.text.isNotEmpty) {
+                await currentUser?.updateDisplayName(_nameController.text.trim());
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Name updated successfully!')),
+                );
+                setState(() {});
+              }
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _sendPasswordResetEmail() async {
+    if (currentUser?.email == null) return;
+    try {
+      await _auth.sendPasswordResetEmail(email: currentUser!.email!);
+      Fluttertoast.showToast(msg: 'Password reset link sent to your email.');
+    } on FirebaseAuthException catch (e) {
+      Fluttertoast.showToast(msg: e.message ?? 'An error occurred.');
+    }
+  }
+  
+  Future<void> _deleteAccount() async {
+    final bool? confirm = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('DELETE ACCOUNT'),
+        content: const Text('This is irreversible. All your data will be permanently deleted. Are you sure?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('DELETE', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await currentUser?.delete();
+        Fluttertoast.showToast(msg: 'Account deleted successfully.');
+      } on FirebaseAuthException catch (e) {
+        Fluttertoast.showToast(msg: e.message ?? 'Failed to delete account.');
+      }
+    }
+  }
+  
+  void _refreshCategoryList() {
+    if (currentUser == null) return;
+    setState(() {
+      _categoriesFuture = dbHelper.getCategories(currentUser!.uid);
+    });
+  }
+
+  void _showAddCategoryDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Add New Category'),
+          content: TextField(
+            controller: _categoryController,
+            autofocus: true,
+            decoration: const InputDecoration(hintText: 'Category Name'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (_categoryController.text.isNotEmpty && currentUser != null) {
+                  await dbHelper.addCategory(_categoryController.text, currentUser!.uid);
+                  _categoryController.clear();
+                  Navigator.pop(context);
+                  _refreshCategoryList();
+                }
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _logout() async {
+    final bool? confirm = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Logout'),
+        content: const Text('Are you sure you want to log out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Logout', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      setState(() {
+        _isLoggingOut = true;
+      });
+      await _auth.signOut();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
+    return Scaffold(
+      body: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          if (currentUser != null)
+            UserAccountsDrawerHeader(
+              margin: EdgeInsets.zero,
+              accountName: Row(
+                children: [
+                  Text(
+                    currentUser!.displayName ?? 'User',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(30),
+                      onTap: _showUpdateNameDialog,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Icon(
+                          Icons.edit,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              accountEmail: Text(currentUser!.email ?? 'No email'),
+              currentAccountPicture: const CircleAvatar(
+                child: Icon(Icons.person, size: 40),
+              ),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+              ),
+            ),
+          
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Text('App Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ),
+          ListTile(
+            leading: const Icon(Icons.dark_mode_outlined),
+            title: const Text('Dark Mode'),
+            trailing: Switch(
+              value: themeProvider.themeMode == ThemeMode.dark,
+              onChanged: (value) {
+                themeProvider.toggleTheme(value);
+              },
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.lock_outline),
+            title: const Text('Passcode Lock'),
+            trailing: Switch(
+              value: _isPasscodeEnabled,
+              onChanged: (value) async {
+                final prefs = await SharedPreferences.getInstance();
+                if (value) {
+                  final success = await Navigator.of(context).push<bool>(
+                    MaterialPageRoute(builder: (context) => const PasscodeScreen(isSettingPasscode: true)),
+                  );
+                  if (success == true) {
+                    setState(() => _isPasscodeEnabled = true);
+                  }
+                } else {
+                  final success = await Navigator.of(context).push<bool>(
+                    MaterialPageRoute(builder: (context) => const PasscodeScreen(isSettingPasscode: false)),
+                  );
+                  if (success == true) {
+                    await prefs.remove('passcode');
+                    setState(() => _isPasscodeEnabled = false);
+                  }
+                }
+              },
+            ),
+          ),
+          if (_isPasscodeEnabled)
+            ListTile(
+              leading: const Icon(Icons.phonelink_lock),
+              title: const Text('Change Passcode'),
+              onTap: () async {
+                final verified = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute(builder: (context) => const PasscodeScreen(isSettingPasscode: false)),
+                );
+                if (verified == true) {
+                  await Navigator.of(context).push<bool>(
+                    MaterialPageRoute(builder: (context) => const PasscodeScreen(isSettingPasscode: true)),
+                  );
+                }
+              },
+            ),
+            
+          ListTile(
+            leading: const Icon(Icons.shield_outlined),
+            title: const Text('Daily Spending Limit'),
+            subtitle: Text(_dailyLimit > 0 ? '$_selectedCurrency ${_dailyLimit.toStringAsFixed(0)}' : 'Not set'),
+            onTap: _showDailyLimitDialog,
+          ),
+
+          ListTile(
+            leading: const Icon(Icons.money),
+            title: const Text('Currency'),
+            trailing: DropdownButton<String>(
+              value: _selectedCurrency,
+              items: <String>['KSh', 'USD', 'EUR', 'GBP']
+                  .map<DropdownMenuItem<String>>((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                if (newValue != null) {
+                  _saveCurrencyPreference(newValue);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Currency updated!')),
+                  );
+                }
+              },
+            ),
+          ),
+          const Divider(),
+          
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Text('Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ),
+          ListTile(
+            leading: const Icon(Icons.password),
+            title: const Text('Change Password'),
+            onTap: _sendPasswordResetEmail,
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete_forever, color: Colors.red),
+            title: const Text('Delete Account', style: TextStyle(color: Colors.red)),
+            onTap: _deleteAccount,
+          ),
+          const Divider(),
+
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text('Manage Expense Categories', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ),
+          FutureBuilder<List<Map<String, dynamic>>>(
+            future: _categoriesFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const ListTile(title: Text('No categories found.'));
+              }
+              final categories = snapshot.data!;
+              return Column(
+                children: categories.map((category) {
+                  return ListTile(
+                    title: Text(category['name']),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      onPressed: () async {
+                        if (currentUser == null) return;
+                        final bool? confirm = await showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Confirm Deletion'),
+                            content: Text('Are you sure you want to delete the "${category['name']}" category? This cannot be undone.'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(false),
+                                child: const Text('Cancel'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(true),
+                                child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (confirm == true) {
+                          await dbHelper.deleteCategory(category['id'], currentUser!.uid);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Category Deleted')),
+                          );
+                          _refreshCategoryList();
+                        }
+                      },
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.add),
+            title: const Text('Add New Category'),
+            onTap: _showAddCategoryDialog,
+          ),
+          const Divider(),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+            child: Center(
+              child: SizedBox(
+                width: MediaQuery.of(context).size.width * 0.7,
+                child: ElevatedButton.icon(
+                  onPressed: _isLoggingOut ? null : _logout,
+                  icon: const Icon(Icons.logout),
+                  label: _isLoggingOut
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white),
+                        )
+                      : const Text('Logout'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
