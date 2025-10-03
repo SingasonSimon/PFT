@@ -1,7 +1,10 @@
 // lib/screens/profile_screen.dart
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -23,13 +26,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _categoryController = TextEditingController();
   final _nameController = TextEditingController();
 
-
   User? get currentUser => _auth.currentUser;
 
   bool _isLoggingOut = false;
+  bool _isUploading = false;
   String _selectedCurrency = 'KSh';
   bool _isPasscodeEnabled = false;
-  // --- REMOVED: Daily Limit variable ---
 
   @override
   void initState() {
@@ -38,16 +40,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadPreferences();
   }
 
+  Future<void> _pickAndUploadImage() async {
+    final imagePicker = ImagePicker();
+    final XFile? image = await imagePicker.pickImage(source: ImageSource.gallery);
+
+    if (image == null || currentUser == null) return;
+
+    setState(() {
+      _isUploading = true;
+    });
+
+    try {
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('profile_pictures')
+          .child('${currentUser!.uid}.jpg');
+
+      await storageRef.putFile(File(image.path));
+      final imageUrl = await storageRef.getDownloadURL();
+      await currentUser!.updatePhotoURL(imageUrl);
+
+      Fluttertoast.showToast(msg: 'Profile picture updated!');
+    } on FirebaseException catch (e) {
+      Fluttertoast.showToast(msg: 'Failed to upload image: ${e.message}');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+        });
+      }
+    }
+  }
+
   Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _selectedCurrency = prefs.getString('currency') ?? 'KSh';
       _isPasscodeEnabled = prefs.getString('passcode') != null;
-      // --- REMOVED: No longer loading daily limit ---
     });
   }
-  
-  // --- REMOVED: The _showDailyLimitDialog function is gone ---
 
   Future<void> _saveCurrencyPreference(String currency) async {
     final prefs = await SharedPreferences.getInstance();
@@ -229,8 +260,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
               accountEmail: Text(currentUser!.email ?? 'No email'),
-              currentAccountPicture: const CircleAvatar(
-                child: Icon(Icons.person, size: 40),
+              currentAccountPicture: GestureDetector(
+                onTap: _pickAndUploadImage,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircleAvatar(
+                      radius: 40,
+                      backgroundImage: (currentUser!.photoURL != null)
+                          ? NetworkImage(currentUser!.photoURL!)
+                          : null,
+                      child: (currentUser!.photoURL == null)
+                          ? const Icon(Icons.person, size: 40)
+                          : null,
+                    ),
+                    if (_isUploading)
+                      const CircularProgressIndicator(),
+                  ],
+                ),
               ),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.primaryContainer,
@@ -292,8 +339,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 }
               },
             ),
-
-          // --- REMOVED: Daily Limit setting is gone ---
 
           ListTile(
             leading: const Icon(Icons.money),
