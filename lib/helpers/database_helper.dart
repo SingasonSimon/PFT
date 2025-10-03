@@ -23,7 +23,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'ledgerlite.db');
     return await openDatabase(
       path,
-      version: 3, // Version updated for userId columns
+      version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -87,7 +87,6 @@ class DatabaseHelper {
     }
   }
 
-  // --- Transaction Functions ---
   Future<int> addTransaction(Transaction transaction, String userId) async {
     final db = await database;
     final map = transaction.toMap();
@@ -95,9 +94,16 @@ class DatabaseHelper {
     return await db.insert('transactions', map);
   }
 
+  // --- THE FIX IS HERE ---
+  // We are adding 'ORDER BY date DESC' to sort the newest transactions first.
   Future<List<Transaction>> getTransactions(String userId) async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('transactions', where: 'userId = ?', whereArgs: [userId], orderBy: 'date DESC');
+    final List<Map<String, dynamic>> maps = await db.query(
+      'transactions',
+      where: 'userId = ?',
+      whereArgs: [userId],
+      orderBy: 'date DESC', // This sorts the results
+    );
     return List.generate(maps.length, (i) => Transaction.fromMap(maps[i]));
   }
 
@@ -106,7 +112,6 @@ class DatabaseHelper {
     return await db.delete('transactions', where: 'id = ? AND userId = ?', whereArgs: [id, userId]);
   }
 
-  // --- Category Functions ---
   Future<List<Map<String, dynamic>>> getCategories(String userId) async {
     final db = await database;
     return db.query('categories', where: 'userId = ?', whereArgs: [userId], orderBy: 'name');
@@ -148,7 +153,6 @@ class DatabaseHelper {
     return null;
   }
 
-  // --- Savings Functions ---
   Future<int> addSavingsGoal(SavingsGoal goal, String userId) async {
     final db = await database;
     final map = goal.toMap();
@@ -177,7 +181,6 @@ class DatabaseHelper {
     return db.delete('savings', where: 'id = ? AND userId = ?', whereArgs: [id, userId]);
   }
 
-  // --- Bill Functions ---
   Future<int> addBill(Bill bill, String userId) async {
     final db = await database;
     final map = bill.toMap();

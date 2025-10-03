@@ -1,3 +1,5 @@
+// lib/screens/home_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
@@ -40,7 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _initHome() async {
     await _requestSmsPermission();
     if (_currentUser != null) {
-      _smsService.startListening(_currentUser.uid);
+      await _smsService.syncMpesaMessages(_currentUser!.uid);
       _refreshData();
     }
   }
@@ -51,14 +53,14 @@ class _HomeScreenState extends State<HomeScreen> {
       await Permission.sms.request();
     }
   }
-
+  
   String _getGreeting() {
     final hour = DateTime.now().hour;
     if (hour < 12) return 'Good Morning';
     if (hour < 17) return 'Good Afternoon';
     return 'Good Evening';
   }
-
+  
   Future<void> _refreshData() async {
     if (_currentUser == null) {
       setState(() => _isLoading = false);
@@ -67,8 +69,8 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _isLoading = true);
     await Future.wait([
       _loadCurrencyPreference(),
-      _loadBills(_currentUser.uid),
-      _loadTransactions(_currentUser.uid),
+      _loadBills(_currentUser!.uid),
+      _loadTransactions(_currentUser!.uid),
     ]);
   }
   
@@ -127,7 +129,9 @@ class _HomeScreenState extends State<HomeScreen> {
   
   Future<int> _getOrCreateBillCategory(String categoryName, String userId) async {
     int? categoryId = await dbHelper.getCategoryId(categoryName, userId);
-    categoryId ??= await dbHelper.addCategory(categoryName, userId);
+    if (categoryId == null) {
+      categoryId = await dbHelper.addCategory(categoryName, userId);
+    }
     return categoryId;
   }
 
@@ -216,8 +220,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             ),
                           ),
-                          if (_bills.isNotEmpty)
-                            _buildUpcomingBillsSection(currentUser),
+                          _buildUpcomingBillsSection(currentUser),
 
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -383,6 +386,9 @@ class _HomeScreenState extends State<HomeScreen> {
         final isIncome = transaction.type == 'income';
         final amountColor = isIncome ? Colors.green : Colors.red;
         final amountPrefix = isIncome ? '+' : '-';
+        
+        // This is a simple check to see if the description is likely a full SMS body
+        final isMpesa = transaction.description.length > 50 && transaction.description.contains('Confirmed.');
 
         return Dismissible(
           key: UniqueKey(),
@@ -424,13 +430,13 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Card(
             margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
             child: ListTile(
-              leading: Icon(
-                isIncome ? Icons.arrow_downward : Icons.arrow_upward,
-                color: amountColor,
-              ),
-              title: Text(transaction.description.isEmpty
-                  ? transaction.type.toUpperCase()
-                  : transaction.description),
+              leading: isMpesa 
+                ? Image.asset('assets/mpesa_logo.png', width: 40, height: 40)
+                : Icon(
+                  isIncome ? Icons.arrow_downward : Icons.arrow_upward,
+                  color: amountColor,
+                ),
+              title: Text(transaction.description, maxLines: 2, overflow: TextOverflow.ellipsis,),
               subtitle: Text(transaction.date.split('T')[0]),
               trailing: Text(
                 '$amountPrefix$_currencySymbol ${currencyFormatter.format(transaction.amount)}',
