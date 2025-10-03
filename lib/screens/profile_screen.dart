@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../helpers/database_helper.dart';
 import '../theme_provider.dart';
 import 'passcode_screen.dart';
@@ -42,7 +43,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _pickAndUploadImage() async {
     final imagePicker = ImagePicker();
-    final XFile? image = await imagePicker.pickImage(source: ImageSource.gallery);
+    final XFile? image = await imagePicker.pickImage(
+      source: ImageSource.gallery,
+    );
 
     if (image == null || currentUser == null) return;
 
@@ -87,7 +90,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _selectedCurrency = currency;
     });
   }
-  
+
   void _showUpdateNameDialog() {
     _nameController.text = currentUser?.displayName ?? '';
     showDialog(
@@ -100,11 +103,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           decoration: const InputDecoration(labelText: 'Full Name'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () async {
               if (_nameController.text.isNotEmpty) {
-                await currentUser?.updateDisplayName(_nameController.text.trim());
+                await currentUser?.updateDisplayName(
+                  _nameController.text.trim(),
+                );
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Name updated successfully!')),
@@ -128,13 +136,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       Fluttertoast.showToast(msg: e.message ?? 'An error occurred.');
     }
   }
-  
+
   Future<void> _deleteAccount() async {
     final bool? confirm = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('DELETE ACCOUNT'),
-        content: const Text('This is irreversible. All your data will be permanently deleted. Are you sure?'),
+        content: const Text(
+          'This is irreversible. All your data will be permanently deleted. Are you sure?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -157,7 +167,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
   }
-  
+
   void _refreshCategoryList() {
     if (currentUser == null) return;
     setState(() {
@@ -183,8 +193,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             TextButton(
               onPressed: () async {
-                if (_categoryController.text.isNotEmpty && currentUser != null) {
-                  await dbHelper.addCategory(_categoryController.text, currentUser!.uid);
+                if (_categoryController.text.isNotEmpty &&
+                    currentUser != null) {
+                  await dbHelper.addCategory(
+                    _categoryController.text,
+                    currentUser!.uid,
+                  );
                   _categoryController.clear();
                   Navigator.pop(context);
                   _refreshCategoryList();
@@ -225,6 +239,83 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _launchWhatsApp() async {
+    const phoneNumber = '+254748088741';
+    const message = 'Hello, I have a question about the PatoTrack app.';
+    final whatsappUrl = Uri.parse(
+      "https://wa.me/$phoneNumber?text=${Uri.encodeComponent(message)}",
+    );
+
+    try {
+      if (await canLaunchUrl(whatsappUrl)) {
+        await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
+      } else {
+        Fluttertoast.showToast(
+          msg: 'Could not launch WhatsApp. Is it installed?',
+        );
+      }
+    } catch (e) {
+      Fluttertoast.showToast(msg: 'An error occurred.');
+    }
+  }
+
+  void _showFaqDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Frequently Asked Questions'),
+        content: const SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Getting Started',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'Use the tabs at the bottom to navigate. Add transactions from the Dashboard, view charts in Reports, and manage your account in Settings.\n',
+              ),
+              Text(
+                'How do I add a transaction?',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'Tap the "Add Transaction" button on the dashboard. Fill in the details and save.\n',
+              ),
+              Text(
+                'How does the M-Pesa sync work?',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'The app automatically reads your M-Pesa SMS messages to create transactions for you. It only reads messages from "MPESA".\n',
+              ),
+              Text(
+                'How do I delete something?',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'On the Dashboard, swipe a transaction from right to left. On the Savings and Settings pages, tap the red trash can icon. All deletions will ask for confirmation.\n',
+              ),
+              Text(
+                'Is my data private?',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'Yes. All your financial data is stored locally on your device and is linked only to your account. No one else can see your data.',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -240,7 +331,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   Text(
                     currentUser!.displayName ?? 'User',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   Material(
                     color: Colors.transparent,
@@ -252,7 +346,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: Icon(
                           Icons.edit,
                           size: 20,
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onPrimaryContainer,
                         ),
                       ),
                     ),
@@ -274,8 +370,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ? const Icon(Icons.person, size: 40)
                           : null,
                     ),
-                    if (_isUploading)
-                      const CircularProgressIndicator(),
+                    if (_isUploading) const CircularProgressIndicator(),
                   ],
                 ),
               ),
@@ -283,10 +378,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 color: Theme.of(context).colorScheme.primaryContainer,
               ),
             ),
-          
+
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: Text('App Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            child: Text(
+              'App Settings',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.dark_mode_outlined),
@@ -307,14 +405,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 final prefs = await SharedPreferences.getInstance();
                 if (value) {
                   final success = await Navigator.of(context).push<bool>(
-                    MaterialPageRoute(builder: (context) => const PasscodeScreen(isSettingPasscode: true)),
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          const PasscodeScreen(isSettingPasscode: true),
+                    ),
                   );
                   if (success == true) {
                     setState(() => _isPasscodeEnabled = true);
                   }
                 } else {
                   final success = await Navigator.of(context).push<bool>(
-                    MaterialPageRoute(builder: (context) => const PasscodeScreen(isSettingPasscode: false)),
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          const PasscodeScreen(isSettingPasscode: false),
+                    ),
                   );
                   if (success == true) {
                     await prefs.remove('passcode');
@@ -330,11 +434,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: const Text('Change Passcode'),
               onTap: () async {
                 final verified = await Navigator.of(context).push<bool>(
-                  MaterialPageRoute(builder: (context) => const PasscodeScreen(isSettingPasscode: false)),
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const PasscodeScreen(isSettingPasscode: false),
+                  ),
                 );
                 if (verified == true) {
                   await Navigator.of(context).push<bool>(
-                    MaterialPageRoute(builder: (context) => const PasscodeScreen(isSettingPasscode: true)),
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          const PasscodeScreen(isSettingPasscode: true),
+                    ),
                   );
                 }
               },
@@ -347,11 +457,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               value: _selectedCurrency,
               items: <String>['KSh', 'USD', 'EUR', 'GBP']
                   .map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  })
+                  .toList(),
               onChanged: (String? newValue) {
                 if (newValue != null) {
                   _saveCurrencyPreference(newValue);
@@ -363,10 +474,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           const Divider(),
-          
+
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: Text('Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            child: Text(
+              'Account',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.password),
@@ -375,14 +489,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.delete_forever, color: Colors.red),
-            title: const Text('Delete Account', style: TextStyle(color: Colors.red)),
+            title: const Text(
+              'Delete Account',
+              style: TextStyle(color: Colors.red),
+            ),
             onTap: _deleteAccount,
           ),
           const Divider(),
 
           const Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Text(
+              'Help & Support',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.question_answer_outlined),
+            title: const Text('FAQ'),
+            onTap: _showFaqDialog,
+          ),
+          ListTile(
+            leading: const Icon(Icons.support_agent),
+            title: const Text('Contact via WhatsApp'),
+            onTap: _launchWhatsApp,
+          ),
+          const Divider(),
+
+          const Padding(
             padding: EdgeInsets.all(16.0),
-            child: Text('Manage Expense Categories', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            child: Text(
+              'Manage Expense Categories',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
           ),
           FutureBuilder<List<Map<String, dynamic>>>(
             future: _categoriesFuture,
@@ -406,22 +545,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           context: context,
                           builder: (context) => AlertDialog(
                             title: const Text('Confirm Deletion'),
-                            content: Text('Are you sure you want to delete the "${category['name']}" category? This cannot be undone.'),
+                            content: Text(
+                              'Are you sure you want to delete the "${category['name']}" category? This cannot be undone.',
+                            ),
                             actions: [
                               TextButton(
-                                onPressed: () => Navigator.of(context).pop(false),
+                                onPressed: () =>
+                                    Navigator.of(context).pop(false),
                                 child: const Text('Cancel'),
                               ),
                               TextButton(
-                                onPressed: () => Navigator.of(context).pop(true),
-                                child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                onPressed: () =>
+                                    Navigator.of(context).pop(true),
+                                child: const Text(
+                                  'Delete',
+                                  style: TextStyle(color: Colors.red),
+                                ),
                               ),
                             ],
                           ),
                         );
 
                         if (confirm == true) {
-                          await dbHelper.deleteCategory(category['id'], currentUser!.uid);
+                          await dbHelper.deleteCategory(
+                            category['id'],
+                            currentUser!.uid,
+                          );
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Category Deleted')),
                           );
@@ -441,7 +590,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const Divider(),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 24.0,
+            ),
             child: Center(
               child: SizedBox(
                 width: MediaQuery.of(context).size.width * 0.7,
@@ -452,7 +604,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            color: Colors.white,
+                          ),
                         )
                       : const Text('Logout'),
                   style: ElevatedButton.styleFrom(
