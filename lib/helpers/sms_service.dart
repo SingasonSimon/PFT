@@ -8,14 +8,14 @@ import '../models/transaction.dart' as model;
 class SmsService {
   final SmsQuery _query = SmsQuery();
   final dbHelper = DatabaseHelper();
-  
+
   Future<void> syncMpesaMessages(String userId) async {
     var permission = await Permission.sms.status;
     if (permission.isGranted) {
       final messages = await _query.querySms(
         kinds: [SmsQueryKind.inbox],
         address: 'MPESA',
-        count: 50, // Check more messages on first sync
+        count: 50,
       );
 
       final existingTransactions = await dbHelper.getTransactions(userId);
@@ -40,36 +40,47 @@ class SmsService {
     return match?.group(1);
   }
 
+  // --- UPDATED: The parser is now much smarter and creates clean descriptions ---
   Future<void> _parseAndSave(String body, String transactionCode, String userId) async {
+    String description = '';
     double? amount;
-    String transactionType = 'expense'; // Default to expense
+    String transactionType = 'expense';
 
-    // Regex to find the amount (works for most messages)
     final amountRegex = RegExp(r"Ksh([\d,]+\.\d{2})");
-    final amountMatch = amountRegex.firstMatch(body);
-
-    if (amountMatch != null) {
-      amount = double.parse(amountMatch.group(1)!.replaceAll(',', ''));
+    final match = amountRegex.firstMatch(body);
+    if (match != null) {
+      amount = double.parse(match.group(1)!.replaceAll(',', ''));
     } else {
-      return; // If no amount found, ignore message
+      return;
     }
 
-    // --- UPDATED: Check for different message types ---
-    if (body.toLowerCase().contains('you have received')) {
+    final paidToRegex = RegExp(r"paid to (.+?)\.");
+    final receivedFromRegex = RegExp(r"received Ksh[\d,]+\.\d{2} from (.+?) on");
+    final sentToRegex = RegExp(r"sent to (.+?) on");
+
+    if (paidToRegex.hasMatch(body)) {
+      final recipient = paidToRegex.firstMatch(body)!.group(1)!.trim();
+      description = 'Paid to $recipient';
+      transactionType = 'expense';
+    } else if (receivedFromRegex.hasMatch(body)) {
+      final sender = receivedFromRegex.firstMatch(body)!.group(1)!.trim().split(' ')[0]; // Get just the first name
+      description = 'Received from $sender';
       transactionType = 'income';
-    } else if (body.toLowerCase().contains('sent to')) {
+    } else if (sentToRegex.hasMatch(body)) {
+      final recipient = sentToRegex.firstMatch(body)!.group(1)!.trim().split(' ')[0]; // Get just the first name
+      description = 'Sent to $recipient';
       transactionType = 'expense';
-    } else if (body.toLowerCase().contains('paid to')) {
-      transactionType = 'expense';
-    } else if (body.toLowerCase().contains('buy goods')) {
-      transactionType = 'expense';
+    } else {
+      description = 'M-Pesa Transaction'; // Fallback
     }
-    // You can add more 'else if' conditions here for other M-Pesa formats
+    
+    // Add the transaction code for reference and duplicate checking
+    description += ' ($transactionCode)';
 
     final newTransaction = model.Transaction(
       type: transactionType,
       amount: amount,
-      description: body, // We still save the full body for accuracy
+      description: description,
       date: DateTime.now().toIso8601String(),
       categoryId: await _getOrCreateMpesaCategory(userId),
     );

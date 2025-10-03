@@ -18,24 +18,22 @@ final NotificationService notificationService = NotificationService();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  
-  tz.initializeTimeZones(); 
-  
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  tz.initializeTimeZones();
+
   await notificationService.init();
 
   runApp(
     ChangeNotifierProvider(
       create: (context) => ThemeProvider(),
-      child: const LedgerLiteApp(),
+      child: const PatoTrack(),
     ),
   );
 }
 
-class LedgerLiteApp extends StatelessWidget {
-  const LedgerLiteApp({super.key});
+class PatoTrack extends StatelessWidget {
+  const PatoTrack({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -47,9 +45,7 @@ class LedgerLiteApp extends StatelessWidget {
       themeMode: themeProvider.themeMode,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
-        textTheme: GoogleFonts.interTextTheme(
-          Theme.of(context).textTheme,
-        ),
+        textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme),
         useMaterial3: true,
       ),
       darkTheme: ThemeData(
@@ -59,7 +55,10 @@ class LedgerLiteApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
         textTheme: GoogleFonts.interTextTheme(
-          Theme.of(context).textTheme.apply(bodyColor: Colors.white, displayColor: Colors.white),
+          Theme.of(context).textTheme.apply(
+            bodyColor: Colors.white,
+            displayColor: Colors.white,
+          ),
         ),
         useMaterial3: true,
       ),
@@ -94,12 +93,10 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: _widgetOptions.elementAt(_selectedIndex),
-      ),
+      body: Center(child: _widgetOptions.elementAt(_selectedIndex)),
       bottomNavigationBar: BottomNavigationBar(
         // We can go back to default type for 3 items
-        type: BottomNavigationBarType.shifting, 
+        type: BottomNavigationBarType.shifting,
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: Icon(Icons.dashboard),

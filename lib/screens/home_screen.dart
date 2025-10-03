@@ -387,8 +387,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final amountColor = isIncome ? Colors.green : Colors.red;
         final amountPrefix = isIncome ? '+' : '-';
         
-        // This is a simple check to see if the description is likely a full SMS body
-        final isMpesa = transaction.description.length > 50 && transaction.description.contains('Confirmed.');
+        final isMpesa = RegExp(r'\([A-Z0-9]{10}\)').hasMatch(transaction.description);
 
         return Dismissible(
           key: UniqueKey(),
@@ -436,7 +435,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   isIncome ? Icons.arrow_downward : Icons.arrow_upward,
                   color: amountColor,
                 ),
-              title: Text(transaction.description, maxLines: 2, overflow: TextOverflow.ellipsis,),
+              title: Text(transaction.description),
               subtitle: Text(transaction.date.split('T')[0]),
               trailing: Text(
                 '$amountPrefix$_currencySymbol ${currencyFormatter.format(transaction.amount)}',
