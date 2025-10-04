@@ -44,6 +44,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_currentUser != null) {
       await _smsService.syncMpesaMessages(_currentUser!.uid);
       _refreshData();
+    } else {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -84,19 +86,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _calculateSummary(List<model.Transaction> transactions) {
-    double income = 0;
-    double expenses = 0;
-    for (var transaction in transactions) {
-      if (transaction.type == 'income') {
-        income += transaction.amount;
-      } else {
-        expenses += transaction.amount;
-      }
-    }
-    
-    _totalIncome = income;
-    _totalExpenses = expenses;
-    _balance = income - expenses;
+    _totalIncome = transactions.where((t) => t.type == 'income').fold(0.0, (sum, t) => sum + t.amount);
+    _totalExpenses = transactions.where((t) => t.type == 'expense').fold(0.0, (sum, t) => sum + t.amount);
+    _balance = _totalIncome - _totalExpenses;
   }
 
   Future<void> _loadTransactions(String userId) async {
@@ -127,14 +119,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _refreshData();
   }
   
-  Future<int> _getOrCreateBillCategory(String categoryName, String userId) async {
-    int? categoryId = await dbHelper.getCategoryId(categoryName, userId);
-    if (categoryId == null) {
-      categoryId = await dbHelper.addCategory(categoryName, userId);
-    }
-    return categoryId;
-  }
-
   ({IconData icon, Color color}) _getBillStyling(String billName) {
     final name = billName.toLowerCase();
     if (name.contains('rent')) return (icon: Icons.house_outlined, color: Colors.orange);
@@ -294,7 +278,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Center(child: Text('No upcoming bills.')),
               )
             : SizedBox(
-                height: 155,
+                height: 165,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 12.0),
@@ -310,30 +294,29 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: styling.color.withOpacity(0.15),
                         child: Padding(
                           padding: const EdgeInsets.all(12.0),
+                          // CORRECTED: The layout of this Column was simplified to fix the RenderFlex overflow error.
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Icon(styling.icon, size: 28, color: styling.color),
-                                    const Spacer(),
-                                    Text(bill.name, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
-                                    Text('$_currencySymbol${bill.amount.toStringAsFixed(0)}'),
-                                    Text(
-                                      daysLeft >= 0 ? '$daysLeft days left' : 'Overdue',
-                                      style: TextStyle(
-                                        color: daysLeft < 3 ? Colors.red : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
+                              Icon(styling.icon, size: 28, color: styling.color),
+                              const SizedBox(height: 4), // Adds a small, fixed gap
+                              Text(bill.name, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                              Text('$_currencySymbol${bill.amount.toStringAsFixed(0)}'),
+                              Text(
+                                daysLeft >= 0 ? '$daysLeft days left' : 'Overdue',
+                                style: TextStyle(
+                                  color: daysLeft < 3 ? Colors.red : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                  fontSize: 12,
                                 ),
                               ),
+                              const Spacer(), // This will now correctly push the button to the bottom
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: TextButton(
+                                  style: TextButton.styleFrom(
+                                    padding: EdgeInsets.zero, // Reduces extra button padding
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
                                   child: const Text('Pay Bill'),
                                   onPressed: () async {
                                     if (currentUser == null) return;
@@ -342,7 +325,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       amount: bill.amount,
                                       description: 'Paid bill: ${bill.name}',
                                       date: DateTime.now().toIso8601String(),
-                                      categoryId: await _getOrCreateBillCategory('Bills', currentUser.uid),
+                                      categoryId: await dbHelper.getOrCreateCategory('Bills', currentUser.uid),
                                     );
                                     await dbHelper.addTransaction(billTransaction, currentUser.uid);
                                     await dbHelper.deleteBill(bill.id!, currentUser.uid);
@@ -435,7 +418,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   isIncome ? Icons.arrow_downward : Icons.arrow_upward,
                   color: amountColor,
                 ),
-              title: Text(transaction.description),
+              title: Text(transaction.description, maxLines: 2, overflow: TextOverflow.ellipsis,),
               subtitle: Text(transaction.date.split('T')[0]),
               trailing: Text(
                 '$amountPrefix$_currencySymbol ${currencyFormatter.format(transaction.amount)}',

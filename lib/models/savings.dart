@@ -1,7 +1,7 @@
 // lib/models/savings.dart
 
 class SavingsGoal {
-  final int? id;
+  final int? id; // THE FIX: This must be 'int?' for the local database
   final String goalName;
   final double targetAmount;
   double currentAmount;
@@ -22,6 +22,7 @@ class SavingsGoal {
     };
   }
 
+  // THE FIX: The fromMap constructor is also corrected
   factory SavingsGoal.fromMap(Map<String, dynamic> map) {
     return SavingsGoal(
       id: map['id'],

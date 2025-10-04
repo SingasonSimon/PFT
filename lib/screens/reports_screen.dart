@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../helpers/database_helper.dart';
 import '../helpers/pdf_helper.dart';
+import '../models/category.dart'; // Import the Category model
 import '../models/transaction.dart' as model;
 
 class ReportsScreen extends StatefulWidget {
@@ -30,20 +31,23 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Future<Map<String, dynamic>> _prepareReportData() async {
     if (_currentUser == null) return {};
     final dbHelper = DatabaseHelper();
-    final transactions = await dbHelper.getTransactions(_currentUser.uid);
-    final categories = await dbHelper.getCategories(_currentUser.uid);
-    final categoryMap = {for (var cat in categories) cat['id'] as int: cat['name'] as String};
+    final transactions = await dbHelper.getTransactions(_currentUser!.uid);
+    final categories = await dbHelper.getCategories(_currentUser!.uid);
+    // CORRECTED: Use object properties (.id and .name) instead of map keys.
+    final categoryMap = {for (var cat in categories) cat.id!: cat.name};
     return {'transactions': transactions, 'categoryMap': categoryMap};
   }
 
-  // --- NEW: Function to calculate Profit/Loss and get a tip ---
   ({double profitLoss, String tip, Color color}) _getProfitLossAndTip(List<model.Transaction> transactions) {
-    // We'll calculate for the current month
     final now = DateTime.now();
     final firstDayOfMonth = DateTime(now.year, now.month, 1);
 
     final monthlyTransactions = transactions.where((t) {
-      return DateTime.parse(t.date).isAfter(firstDayOfMonth);
+      try {
+        return DateTime.parse(t.date).isAfter(firstDayOfMonth);
+      } catch (e) {
+        return false;
+      }
     }).toList();
 
     double income = monthlyTransactions.where((t) => t.type == 'income').fold(0.0, (sum, t) => sum + t.amount);
@@ -124,7 +128,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
           final barChartData = _prepareBarChartData(allTransactions);
           final totalExpenses = expenseData.values.fold(0.0, (sum, amount) => sum + amount);
           
-          // --- NEW: Get the profit/loss data ---
           final profitLossData = _getProfitLossAndTip(allTransactions);
 
           return Column(
@@ -133,7 +136,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(16.0),
                   children: [
-                    // --- NEW: Profit/Loss & Tip Card ---
                     Card(
                       color: profitLossData.color.withOpacity(0.15),
                       child: Padding(
@@ -202,7 +204,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                   if (value == 0 || value == meta.max) {
                                       return Text(compactFormatter.format(value));
                                   }
-                                  if (value % (meta.max / 5) < 100) {
+                                  if (meta.max > 5 && value % (meta.max / 5) < 100) {
                                     return Text(compactFormatter.format(value));
                                   }
                                   return const Text('');
@@ -299,7 +301,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      PdfHelper.generateAndSharePdf(allTransactions);
+                      if (_currentUser != null) {
+                         PdfHelper.generateAndSharePdf(allTransactions);
+                      }
                     },
                     icon: const Icon(Icons.picture_as_pdf),
                     label: const Text('Export as PDF'),

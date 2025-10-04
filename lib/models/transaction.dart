@@ -1,12 +1,13 @@
+// lib/models/transaction.dart
+
 class Transaction {
-  final int? id; // Can be null if the transaction is not yet saved in the DB
-  final String type; // 'income' or 'expense'
+  final int? id; // THE FIX: This must be 'int?' for the local database
+  final String type;
   final double amount;
   final String description;
   final String date;
   final int? categoryId;
 
-  // This is the constructor for the class
   Transaction({
     this.id,
     required this.type,
@@ -16,8 +17,6 @@ class Transaction {
     this.categoryId,
   });
 
-  // Helper method to convert our Transaction object into a Map.
-  // This is needed to insert data into the SQLite database.
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -29,8 +28,7 @@ class Transaction {
     };
   }
 
-  // Helper factory to create a Transaction object from a Map.
-  // This is needed when we read data from the database.
+  // THE FIX: The fromMap constructor is also corrected
   factory Transaction.fromMap(Map<String, dynamic> map) {
     return Transaction(
       id: map['id'],

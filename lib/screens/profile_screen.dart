@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../helpers/database_helper.dart';
+import '../models/category.dart';
 import '../theme_provider.dart';
 import 'passcode_screen.dart';
 
@@ -23,7 +24,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final dbHelper = DatabaseHelper();
   final _auth = FirebaseAuth.instance;
-  late Future<List<Map<String, dynamic>>> _categoriesFuture;
+  late Future<List<Category>> _categoriesFuture;
   final _categoryController = TextEditingController();
   final _nameController = TextEditingController();
 
@@ -34,13 +35,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _selectedCurrency = 'KSh';
   bool _isPasscodeEnabled = false;
 
+  // NEW: A predefined list of icons for our custom picker
+  final List<IconData> _selectableIcons = [
+    Icons.shopping_cart, Icons.restaurant, Icons.house, Icons.flight,
+    Icons.receipt, Icons.local_hospital, Icons.school, Icons.pets,
+    Icons.phone_android, Icons.wifi, Icons.movie, Icons.spa,
+    Icons.build, Icons.book, Icons.music_note, Icons.directions_car,
+  ];
+
   @override
   void initState() {
     super.initState();
     _refreshCategoryList();
     _loadPreferences();
   }
-
+  
+  // All other methods like _pickAndUploadImage, _loadPreferences, etc. remain the same.
+  // ... (previous methods from your file)
+  
   Future<void> _pickAndUploadImage() async {
     final imagePicker = ImagePicker();
     final XFile? image = await imagePicker.pickImage(
@@ -77,10 +89,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _selectedCurrency = prefs.getString('currency') ?? 'KSh';
-      _isPasscodeEnabled = prefs.getString('passcode') != null;
-    });
+    if (mounted) {
+      setState(() {
+        _selectedCurrency = prefs.getString('currency') ?? 'KSh';
+        _isPasscodeEnabled = prefs.getString('passcode') != null;
+      });
+    }
   }
 
   Future<void> _saveCurrencyPreference(String currency) async {
@@ -114,10 +128,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _nameController.text.trim(),
                 );
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Name updated successfully!')),
-                );
-                setState(() {});
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Name updated successfully!')),
+                  );
+                  setState(() {});
+                }
               }
             },
             child: const Text('Update'),
@@ -167,6 +183,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
   }
+  
+  IconData _getIconForCategory(Category category) {
+    if (category.iconCodePoint != null) {
+      return IconData(category.iconCodePoint!, fontFamily: 'MaterialIcons');
+    }
+    return Icons.label;
+  }
+
+  Color _getColorForCategory(Category category) {
+    // For now, let's use a default color. We can add a color picker later if you want.
+    return Theme.of(context).colorScheme.primaryContainer;
+  }
 
   void _refreshCategoryList() {
     if (currentUser == null) return;
@@ -175,43 +203,110 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
+  // UPDATED: Dialog now uses our custom icon picker
   void _showAddCategoryDialog() {
+    _categoryController.clear();
+    IconData? selectedIcon = Icons.label; // Default icon
+
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Add New Category'),
-          content: TextField(
-            controller: _categoryController,
-            autofocus: true,
-            decoration: const InputDecoration(hintText: 'Category Name'),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () async {
-                if (_categoryController.text.isNotEmpty &&
-                    currentUser != null) {
-                  await dbHelper.addCategory(
-                    _categoryController.text,
-                    currentUser!.uid,
-                  );
-                  _categoryController.clear();
-                  Navigator.pop(context);
-                  _refreshCategoryList();
-                }
-              },
-              child: const Text('Add'),
-            ),
-          ],
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Add New Category'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: _categoryController,
+                      autofocus: true,
+                      decoration: const InputDecoration(hintText: 'Category Name'),
+                    ),
+                    const SizedBox(height: 20),
+                    ListTile(
+                      leading: Icon(selectedIcon),
+                      title: const Text('Select Icon'),
+                      onTap: () async {
+                        // Open our custom picker
+                        final IconData? newIcon = await showDialog<IconData>(
+                          context: context,
+                          builder: (context) => _buildIconPickerDialog(),
+                        );
+                        if (newIcon != null) {
+                          setDialogState(() {
+                            selectedIcon = newIcon;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    if (_categoryController.text.isNotEmpty && currentUser != null) {
+                      final newCategory = Category(
+                        name: _categoryController.text.trim(),
+                        iconCodePoint: selectedIcon?.codePoint,
+                      );
+                      await dbHelper.addCategory(newCategory, currentUser!.uid);
+                      _categoryController.clear();
+                      Navigator.pop(context);
+                      _refreshCategoryList();
+                    }
+                  },
+                  child: const Text('Add'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
   }
 
+  // NEW: The custom dialog widget that shows our grid of icons
+  Widget _buildIconPickerDialog() {
+    return AlertDialog(
+      title: const Text('Select an Icon'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: GridView.builder(
+          shrinkWrap: true,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 4,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+          ),
+          itemCount: _selectableIcons.length,
+          itemBuilder: (context, index) {
+            final icon = _selectableIcons[index];
+            return InkWell(
+              onTap: () {
+                Navigator.of(context).pop(icon);
+              },
+              borderRadius: BorderRadius.circular(50),
+              child: Icon(icon, size: 32),
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+  
   Future<void> _logout() async {
     final bool? confirm = await showDialog(
       context: context,
@@ -378,7 +473,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 color: Theme.of(context).colorScheme.primaryContainer,
               ),
             ),
-
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: Text(
@@ -449,7 +543,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 }
               },
             ),
-
           ListTile(
             leading: const Icon(Icons.money),
             title: const Text('Currency'),
@@ -457,12 +550,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               value: _selectedCurrency,
               items: <String>['KSh', 'USD', 'EUR', 'GBP']
                   .map<DropdownMenuItem<String>>((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  })
-                  .toList(),
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              })
+              .toList(),
               onChanged: (String? newValue) {
                 if (newValue != null) {
                   _saveCurrencyPreference(newValue);
@@ -474,7 +567,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           const Divider(),
-
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: Text(
@@ -496,7 +588,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onTap: _deleteAccount,
           ),
           const Divider(),
-
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: Text(
@@ -515,7 +606,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onTap: _launchWhatsApp,
           ),
           const Divider(),
-
           const Padding(
             padding: EdgeInsets.all(16.0),
             child: Text(
@@ -523,63 +613,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
-          FutureBuilder<List<Map<String, dynamic>>>(
+          FutureBuilder<List<Category>>(
             future: _categoriesFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
               if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return const ListTile(title: Text('No categories found.'));
+                return const ListTile(title: Text('No categories yet. Add one!'));
               }
               final categories = snapshot.data!;
-              return Column(
-                children: categories.map((category) {
-                  return ListTile(
-                    title: Text(category['name']),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () async {
-                        if (currentUser == null) return;
-                        final bool? confirm = await showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('Confirm Deletion'),
-                            content: Text(
-                              'Are you sure you want to delete the "${category['name']}" category? This cannot be undone.',
+              return ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: categories.length,
+                itemBuilder: (context, index) {
+                  final category = categories[index];
+                  return Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: _getColorForCategory(category),
+                        child: Icon(
+                          _getIconForCategory(category),
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                      title: Text(category.name),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () async {
+                           if (currentUser == null) return;
+                          final bool? confirm = await showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Confirm Deletion'),
+                              content: Text('Are you sure you want to delete the "${category.name}" category?'),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+                                TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+                              ],
                             ),
-                            actions: [
-                              TextButton(
-                                onPressed: () =>
-                                    Navigator.of(context).pop(false),
-                                child: const Text('Cancel'),
-                              ),
-                              TextButton(
-                                onPressed: () =>
-                                    Navigator.of(context).pop(true),
-                                child: const Text(
-                                  'Delete',
-                                  style: TextStyle(color: Colors.red),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-
-                        if (confirm == true) {
-                          await dbHelper.deleteCategory(
-                            category['id'],
-                            currentUser!.uid,
                           );
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Category Deleted')),
-                          );
-                          _refreshCategoryList();
-                        }
-                      },
+                          if (confirm == true) {
+                            await dbHelper.deleteCategory(category.id!, currentUser!.uid);
+                             if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Category Deleted')));
+                            }
+                            _refreshCategoryList();
+                          }
+                        },
+                      ),
                     ),
                   );
-                }).toList(),
+                },
               );
             },
           ),
@@ -590,33 +677,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const Divider(),
           Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 24.0,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
             child: Center(
               child: SizedBox(
                 width: MediaQuery.of(context).size.width * 0.7,
                 child: ElevatedButton.icon(
                   onPressed: _isLoggingOut ? null : _logout,
                   icon: const Icon(Icons.logout),
-                  label: _isLoggingOut
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 3,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('Logout'),
+                  label: _isLoggingOut ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white)) : const Text('Logout'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),

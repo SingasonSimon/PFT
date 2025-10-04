@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../helpers/database_helper.dart';
+import '../models/category.dart'; // Make sure the Category model is imported
 import '../models/transaction.dart' as model;
 
 class AddTransactionScreen extends StatefulWidget {
@@ -21,7 +22,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   DateTime _selectedDate = DateTime.now();
   
   int? _selectedCategoryId;
-  late Future<List<Map<String, dynamic>>> _categoriesFuture;
+  // FIX #1: Changed the type from List<Map<String, dynamic>> to List<Category>
+  late Future<List<Category>> _categoriesFuture;
   
   final dbHelper = DatabaseHelper();
   final User? _currentUser = FirebaseAuth.instance.currentUser;
@@ -30,8 +32,15 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   void initState() {
     super.initState();
     if (_currentUser != null) {
-      _categoriesFuture = dbHelper.getCategories(_currentUser.uid);
+      _categoriesFuture = dbHelper.getCategories(_currentUser!.uid);
     }
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
   }
 
   Future<void> _saveTransaction() async {
@@ -50,7 +59,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       categoryId: _transactionType == 'expense' ? _selectedCategoryId : null,
     );
 
-    await dbHelper.addTransaction(newTransaction, _currentUser.uid);
+    await dbHelper.addTransaction(newTransaction, _currentUser!.uid);
 
     messenger.showSnackBar(
       const SnackBar(content: Text('Transaction Saved')),
@@ -85,8 +94,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           children: [
             SegmentedButton<String>(
               segments: const [
-                ButtonSegment(value: 'expense', label: Text('Expense')),
-                ButtonSegment(value: 'income', label: Text('Income')),
+                ButtonSegment(value: 'expense', label: Text('Expense'), icon: Icon(Icons.arrow_upward)),
+                ButtonSegment(value: 'income', label: Text('Income'), icon: Icon(Icons.arrow_downward)),
               ],
               selected: {_transactionType},
               onSelectionChanged: (Set<String> newSelection) {
@@ -118,26 +127,34 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             const SizedBox(height: 16),
             
             if (_transactionType == 'expense')
-              FutureBuilder<List<Map<String, dynamic>>>(
+              // FIX #2: Updated the FutureBuilder to use List<Category>
+              FutureBuilder<List<Category>>(
                 future: _categoriesFuture,
                 builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
+                  }
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                     return const ListTile(
+                      title: Text('No categories found.'),
+                      subtitle: Text('Go to Settings to add a category first.'),
+                    );
                   }
                   
                   final categories = snapshot.data!;
                   
                   return DropdownButtonFormField<int>(
-                    initialValue: _selectedCategoryId,
+                    value: _selectedCategoryId,
                     decoration: const InputDecoration(
                       labelText: 'Category',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.category),
                     ),
+                    // FIX #3: Use object properties (.id and .name) to build the items
                     items: categories.map((category) {
                       return DropdownMenuItem<int>(
-                        value: category['id'],
-                        child: Text(category['name']),
+                        value: category.id,
+                        child: Text(category.name),
                       );
                     }).toList(),
                     onChanged: (int? newValue) {
