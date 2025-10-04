@@ -32,7 +32,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   void initState() {
     super.initState();
     if (_currentUser != null) {
-      _categoriesFuture = dbHelper.getCategories(_currentUser!.uid);
+      _categoriesFuture = dbHelper.getCategories(_currentUser.uid);
     }
   }
 
@@ -59,7 +59,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       categoryId: _transactionType == 'expense' ? _selectedCategoryId : null,
     );
 
-    await dbHelper.addTransaction(newTransaction, _currentUser!.uid);
+    await dbHelper.addTransaction(newTransaction, _currentUser.uid);
 
     messenger.showSnackBar(
       const SnackBar(content: Text('Transaction Saved')),
@@ -144,7 +144,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   final categories = snapshot.data!;
                   
                   return DropdownButtonFormField<int>(
-                    value: _selectedCategoryId,
+                    initialValue: _selectedCategoryId,
                     decoration: const InputDecoration(
                       labelText: 'Category',
                       border: OutlineInputBorder(),

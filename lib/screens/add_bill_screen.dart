@@ -40,7 +40,7 @@ class _AddBillScreenState extends State<AddBillScreen> {
         final billName = _nameController.text.trim();
 
         // Check for duplicate bill names
-        final existingBills = await dbHelper.getBills(_currentUser!.uid);
+        final existingBills = await dbHelper.getBills(_currentUser.uid);
         final isDuplicate = existingBills.any((bill) => bill.name.toLowerCase() == billName.toLowerCase());
 
         if (isDuplicate) {
@@ -60,7 +60,7 @@ class _AddBillScreenState extends State<AddBillScreen> {
               : null,
         );
 
-        final newBillId = await dbHelper.addBill(newBill, _currentUser!.uid);
+        final newBillId = await dbHelper.addBill(newBill, _currentUser.uid);
 
         // Schedule notification for the new bill
         final notificationService = NotificationService();
@@ -158,7 +158,7 @@ class _AddBillScreenState extends State<AddBillScreen> {
             if (_isRecurring) ...[
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _recurrenceType,
+                initialValue: _recurrenceType,
                 decoration: const InputDecoration(
                   labelText: 'Frequency',
                   border: OutlineInputBorder(),

@@ -4,7 +4,7 @@ import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'database_helper.dart';
 import '../models/transaction.dart' as model;
-import '../models/category.dart'; // Import the Category model
+// Import the Category model
 
 class SmsService {
   final SmsQuery _query = SmsQuery();

@@ -31,8 +31,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Future<Map<String, dynamic>> _prepareReportData() async {
     if (_currentUser == null) return {};
     final dbHelper = DatabaseHelper();
-    final transactions = await dbHelper.getTransactions(_currentUser!.uid);
-    final categories = await dbHelper.getCategories(_currentUser!.uid);
+    final transactions = await dbHelper.getTransactions(_currentUser.uid);
+    final categories = await dbHelper.getCategories(_currentUser.uid);
     // CORRECTED: Use object properties (.id and .name) instead of map keys.
     final categoryMap = {for (var cat in categories) cat.id!: cat.name};
     return {'transactions': transactions, 'categoryMap': categoryMap};
