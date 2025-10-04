@@ -41,11 +41,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _initHome() async {
     await _requestSmsPermission();
+    if (!mounted) return;
     if (_currentUser != null) {
-      await _smsService.syncMpesaMessages(_currentUser!.uid);
+      // Don't await this so the UI can load faster
+      _smsService.syncMpesaMessages(_currentUser!.uid).then((_) {
+        if (mounted) {
+          _refreshData();
+        }
+      });
       _refreshData();
     } else {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -64,16 +72,28 @@ class _HomeScreenState extends State<HomeScreen> {
   }
   
   Future<void> _refreshData() async {
+    if (!mounted) return;
     if (_currentUser == null) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
-    setState(() => _isLoading = true);
-    await Future.wait([
-      _loadCurrencyPreference(),
-      _loadBills(_currentUser!.uid),
-      _loadTransactions(_currentUser!.uid),
-    ]);
+    if (mounted) setState(() => _isLoading = true);
+    
+    try {
+      await Future.wait([
+        _loadCurrencyPreference(),
+        _loadBills(_currentUser!.uid),
+        _loadTransactions(_currentUser!.uid),
+      ]);
+    } catch (e) {
+      print("Error refreshing data: $e");
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
   
   Future<void> _loadCurrencyPreference() async {
@@ -93,11 +113,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadTransactions(String userId) async {
     final allTransactions = await dbHelper.getTransactions(userId);
-    _calculateSummary(allTransactions);
-    if (mounted) {
+    if(mounted) {
+      _calculateSummary(allTransactions);
       setState(() {
         _transactions = allTransactions;
-        _isLoading = false;
       });
     }
   }
@@ -113,9 +132,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _deleteTransaction(int id, String userId) async {
     await dbHelper.deleteTransaction(id, userId);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Transaction Deleted')),
-    );
+    if(mounted){
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Transaction Deleted')),
+      );
+    }
     _refreshData();
   }
   
@@ -130,6 +151,32 @@ class _HomeScreenState extends State<HomeScreen> {
     return (icon: Icons.receipt_long_outlined, color: Colors.grey);
   }
 
+  ({String text, Color color}) _getBillStatus(DateTime dueDate) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dueDay = DateTime(dueDate.year, dueDate.month, dueDate.day);
+    final daysLeft = dueDay.difference(today).inDays;
+
+    if (daysLeft < 0) {
+      return (text: 'Overdue', color: Colors.red);
+    } else if (daysLeft == 0) {
+      return (text: 'Due Today', color: Colors.orange);
+    } else if (daysLeft <= 7) {
+      return (text: 'Due in $daysLeft days', color: Colors.yellow.shade800);
+    } else {
+      return (text: '$daysLeft days left', color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7));
+    }
+  }
+  
+  DateTime _calculateNextDueDate(Bill bill) {
+    if (bill.recurrenceType == 'monthly') {
+      return DateTime(bill.dueDate.year, bill.dueDate.month + 1, bill.dueDate.day);
+    } else if (bill.recurrenceType == 'weekly') {
+      return bill.dueDate.add(const Duration(days: 7));
+    }
+    return bill.dueDate;
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
@@ -138,100 +185,83 @@ class _HomeScreenState extends State<HomeScreen> {
         final currentUser = snapshot.data;
 
         return Scaffold(
-          body: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.fromLTRB(16, 50, 16, 20),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                        borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(30),
-                          bottomRight: Radius.circular(30),
+          // THE FIX: Wrap the body in a SafeArea widget.
+          body: SafeArea(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                  onRefresh: _refreshData,
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // The greeting container is now inside the SafeArea, so it will appear below the status bar
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${_getGreeting()} 👋',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              Text(
+                                currentUser?.displayName ?? 'User',
+                                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${_getGreeting()} 👋',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        Expanded(
+                          child: ListView(
+                            padding: EdgeInsets.zero,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Column(
+                                  children: [
+                                    SummaryCard(
+                                      title: 'Total Income', amount: _totalIncome, icon: Icons.trending_up, color: Colors.green, currencySymbol: _currencySymbol,
+                                    ),
+                                    SummaryCard(
+                                      title: 'Total Expenses', amount: _totalExpenses, icon: Icons.trending_down, color: Colors.red, currencySymbol: _currencySymbol,
+                                    ),
+                                    SummaryCard(
+                                      title: 'Balance', amount: _balance, icon: Icons.account_balance, color: _balance >= 0 ? Colors.blue : Colors.orange, currencySymbol: _currencySymbol,
+                                    ),
+                                  ],
                                 ),
-                          ),
-                          Text(
-                            currentUser?.displayName ?? 'User',
-                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: ListView(
-                        padding: EdgeInsets.zero,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Column(
-                              children: [
-                                SummaryCard(
-                                  title: 'Total Income',
-                                  amount: _totalIncome,
-                                  icon: Icons.trending_up,
-                                  color: Colors.green,
-                                  currencySymbol: _currencySymbol,
-                                ),
-                                SummaryCard(
-                                  title: 'Total Expenses',
-                                  amount: _totalExpenses,
-                                  icon: Icons.trending_down,
-                                  color: Colors.red,
-                                  currencySymbol: _currencySymbol,
-                                ),
-                                SummaryCard(
-                                  title: 'Balance',
-                                  amount: _balance,
-                                  icon: Icons.account_balance,
-                                  color: _balance >= 0 ? Colors.blue : Colors.orange,
-                                  currencySymbol: _currencySymbol,
-                                ),
-                              ],
-                            ),
-                          ),
-                          _buildUpcomingBillsSection(currentUser),
+                              ),
+                              _buildUpcomingBillsSection(currentUser),
 
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('Recent Transactions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                                TextButton(
-                                  onPressed: () {
-                                    if (currentUser == null) return;
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (context) => const AllTransactionsScreen()),
-                                    ).then((_) => _refreshData());
-                                  },
-                                  child: const Text('See All'),
-                                )
-                              ],
-                            ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text('Recent Transactions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                    TextButton(
+                                      onPressed: () {
+                                        if (currentUser == null) return;
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (context) => const AllTransactionsScreen()),
+                                        ).then((_) => _refreshData());
+                                      },
+                                      child: const Text('See All'),
+                                    )
+                                  ],
+                                ),
+                              ),
+                              _buildTransactionList(currentUser),
+                            ],
                           ),
-                          _buildTransactionList(currentUser),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
                 ),
-          floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+          ),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () async {
               await Navigator.push(
@@ -250,6 +280,7 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
+
 
   Widget _buildUpcomingBillsSection(User? currentUser) {
     return Column(
@@ -285,54 +316,64 @@ class _HomeScreenState extends State<HomeScreen> {
                   itemCount: _bills.length,
                   itemBuilder: (context, index) {
                     final bill = _bills[index];
-                    final daysLeft = bill.dueDate.difference(DateTime.now()).inDays;
                     final styling = _getBillStyling(bill.name);
+                    final status = _getBillStatus(bill.dueDate);
 
                     return SizedBox(
                       width: 170,
                       child: Card(
-                        color: styling.color.withOpacity(0.15),
+                        shape: RoundedRectangleBorder(
+                          side: BorderSide(color: status.color.withOpacity(0.5), width: 1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         child: Padding(
                           padding: const EdgeInsets.all(12.0),
-                          // CORRECTED: The layout of this Column was simplified to fix the RenderFlex overflow error.
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(styling.icon, size: 28, color: styling.color),
-                              const SizedBox(height: 4), // Adds a small, fixed gap
+                              Row(
+                                children: [
+                                  Icon(styling.icon, size: 28, color: styling.color),
+                                  const Spacer(),
+                                  if (bill.isRecurring) Icon(Icons.sync, size: 16, color: Colors.grey.shade600)
+                                ],
+                              ),
+                              const Spacer(),
                               Text(bill.name, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
                               Text('$_currencySymbol${bill.amount.toStringAsFixed(0)}'),
                               Text(
-                                daysLeft >= 0 ? '$daysLeft days left' : 'Overdue',
-                                style: TextStyle(
-                                  color: daysLeft < 3 ? Colors.red : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                                  fontSize: 12,
-                                ),
+                                status.text,
+                                style: TextStyle(color: status.color, fontSize: 12, fontWeight: FontWeight.bold),
                               ),
-                              const Spacer(), // This will now correctly push the button to the bottom
+                              const Spacer(),
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: TextButton(
                                   style: TextButton.styleFrom(
-                                    padding: EdgeInsets.zero, // Reduces extra button padding
+                                    padding: EdgeInsets.zero,
                                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                   ),
                                   child: const Text('Pay Bill'),
                                   onPressed: () async {
                                     if (currentUser == null) return;
+                                    
+                                    // Create the expense transaction
                                     final billTransaction = model.Transaction(
-                                      type: 'expense',
-                                      amount: bill.amount,
-                                      description: 'Paid bill: ${bill.name}',
-                                      date: DateTime.now().toIso8601String(),
-                                      categoryId: await dbHelper.getOrCreateCategory('Bills', currentUser.uid),
+                                      type: 'expense', amount: bill.amount, description: 'Paid bill: ${bill.name}', date: DateTime.now().toIso8601String(), categoryId: await dbHelper.getOrCreateCategory('Bills', currentUser.uid),
                                     );
                                     await dbHelper.addTransaction(billTransaction, currentUser.uid);
-                                    await dbHelper.deleteBill(bill.id!, currentUser.uid);
+
+                                    // UPDATED: Smart logic for recurring vs one-time bills
+                                    if (bill.isRecurring) {
+                                      final nextDueDate = _calculateNextDueDate(bill);
+                                      final updatedBill = bill.copyWith(dueDate: nextDueDate);
+                                      await dbHelper.updateBill(updatedBill, currentUser.uid);
+                                      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Recurring bill "${bill.name}" paid. Next due date set.')));
+                                    } else {
+                                      await dbHelper.deleteBill(bill.id!, currentUser.uid);
+                                      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Bill "${bill.name}" marked as paid.')));
+                                    }
                                     
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Bill "${bill.name}" marked as paid.')),
-                                    );
                                     _refreshData();
                                   },
                                 ),
@@ -373,26 +414,17 @@ class _HomeScreenState extends State<HomeScreen> {
         final isMpesa = RegExp(r'\([A-Z0-9]{10}\)').hasMatch(transaction.description);
 
         return Dismissible(
-          key: UniqueKey(),
+          key: ValueKey(transaction.id),
           direction: DismissDirection.endToStart,
           confirmDismiss: (direction) async {
              return await showDialog(
               context: context,
               builder: (BuildContext context) {
                 return AlertDialog(
-                  title: const Text('Confirm Deletion'),
-                  content: const Text(
-                      'Are you sure you want to delete this transaction?'),
+                  title: const Text('Confirm Deletion'), content: const Text('Are you sure you want to delete this transaction?'),
                   actions: <Widget>[
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      child: const Text('Cancel'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(true),
-                      child:
-                          const Text('Delete', style: TextStyle(color: Colors.red)),
-                    ),
+                    TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+                    TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
                   ],
                 );
               },
@@ -404,9 +436,7 @@ class _HomeScreenState extends State<HomeScreen> {
             }
           },
           background: Container(
-            color: Colors.red,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            alignment: Alignment.centerRight,
+            color: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 20), alignment: Alignment.centerRight,
             child: const Icon(Icons.delete, color: Colors.white),
           ),
           child: Card(
@@ -414,18 +444,12 @@ class _HomeScreenState extends State<HomeScreen> {
             child: ListTile(
               leading: isMpesa 
                 ? Image.asset('assets/mpesa_logo.png', width: 40, height: 40)
-                : Icon(
-                  isIncome ? Icons.arrow_downward : Icons.arrow_upward,
-                  color: amountColor,
-                ),
+                : Icon(isIncome ? Icons.arrow_downward : Icons.arrow_upward, color: amountColor),
               title: Text(transaction.description, maxLines: 2, overflow: TextOverflow.ellipsis,),
               subtitle: Text(transaction.date.split('T')[0]),
               trailing: Text(
                 '$amountPrefix$_currencySymbol ${currencyFormatter.format(transaction.amount)}',
-                style: TextStyle(
-                  color: amountColor,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: amountColor, fontWeight: FontWeight.bold),
               ),
             ),
           ),
