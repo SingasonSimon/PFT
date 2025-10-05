@@ -225,23 +225,40 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                               _buildUpcomingBillsSection(currentUser),
-
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text('Recent Transactions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                                    TextButton(
-                                      onPressed: () {
-                                        if (currentUser == null) return;
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(builder: (context) => const AllTransactionsScreen()),
-                                        ).then((_) => _refreshData());
-                                      },
-                                      child: const Text('See All'),
-                                    )
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text('Recent Transactions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                        TextButton(
+                                          onPressed: () {
+                                            if (currentUser == null) return;
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(builder: (context) => const AllTransactionsScreen()),
+                                            ).then((_) => _refreshData());
+                                          },
+                                          child: const Text('See All'),
+                                        )
+                                      ],
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4.0),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.info_outline, size: 14, color: Colors.grey.shade600),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Swipe left on an item to delete',
+                                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -434,7 +451,6 @@ class _HomeScreenState extends State<HomeScreen> {
               leading: isMpesa 
                 ? Image.asset('assets/mpesa_logo.png', width: 40, height: 40)
                 : Icon(isIncome ? Icons.arrow_downward : Icons.arrow_upward, color: amountColor),
-              // THE FIX: Check if description is empty and provide a fallback title
               title: Text(
                 transaction.description.isNotEmpty
                   ? transaction.description
@@ -442,7 +458,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              subtitle: Text(transaction.date.split('T')[0]),
+              subtitle: Row(
+                children: [
+                  Icon(
+                    transaction.tag == 'business' ? Icons.business_center : Icons.person,
+                    size: 14,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${transaction.tag.capitalize()} · ${transaction.date.split('T')[0]}',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+                  ),
+                ],
+              ),
               trailing: Text(
                 '$amountPrefix$_currencySymbol ${currencyFormatter.format(transaction.amount)}',
                 style: TextStyle(color: amountColor, fontWeight: FontWeight.bold),
@@ -492,7 +521,6 @@ class SummaryCard extends StatelessWidget {
   }
 }
 
-// NEW: Helper extension to capitalize strings
 extension StringExtension on String {
   String capitalize() {
     if (isEmpty) return this;
