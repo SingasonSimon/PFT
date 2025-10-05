@@ -40,10 +40,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isPasscodeEnabled = false;
 
   static const List<IconData> _selectableIcons = [
-    Icons.shopping_cart, Icons.restaurant, Icons.house, Icons.flight,
-    Icons.receipt, Icons.local_hospital, Icons.school, Icons.pets,
-    Icons.phone_android, Icons.wifi, Icons.movie, Icons.spa,
-    Icons.build, Icons.book, Icons.music_note, Icons.directions_car,
+    Icons.shopping_cart,
+    Icons.restaurant,
+    Icons.house,
+    Icons.flight,
+    Icons.receipt,
+    Icons.local_hospital,
+    Icons.school,
+    Icons.pets,
+    Icons.phone_android,
+    Icons.wifi,
+    Icons.movie,
+    Icons.spa,
+    Icons.build,
+    Icons.book,
+    Icons.music_note,
+    Icons.directions_car,
   ];
 
   @override
@@ -52,35 +64,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _refreshCategoryList();
     _loadPreferences();
   }
-  
+
   @override
   void dispose() {
     _categoryController.dispose();
     _nameController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _pickAndUploadImage() async {
     final imagePicker = ImagePicker();
-    final XFile? image = await imagePicker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+    final XFile? image = await imagePicker.pickImage(
+        source: ImageSource.gallery, imageQuality: 70);
 
     if (image == null || currentUser == null) return;
 
     setState(() => _isUploading = true);
 
     try {
-      final url = Uri.parse('https://api.cloudinary.com/v1_1/${AppConfig.cloudinaryCloudName}/image/upload');
+      final url = Uri.parse(
+          'https://api.cloudinary.com/v1_1/${AppConfig.cloudinaryCloudName}/image/upload');
       final request = http.MultipartRequest('POST', url);
       request.files.add(await http.MultipartFile.fromPath('file', image.path));
 
-      final timestamp = (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString();
-      final stringToSign = 'timestamp=$timestamp${AppConfig.cloudinaryApiSecret}';
+      final timestamp =
+          (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString();
+      final stringToSign =
+          'timestamp=$timestamp${AppConfig.cloudinaryApiSecret}';
       final signature = sha1.convert(utf8.encode(stringToSign)).toString();
 
       request.fields['api_key'] = AppConfig.cloudinaryApiKey;
       request.fields['timestamp'] = timestamp;
       request.fields['signature'] = signature;
-      
+
       final response = await request.send();
 
       if (response.statusCode == 200) {
@@ -93,7 +109,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       } else {
         final errorData = await response.stream.bytesToString();
         print('Cloudinary Error: $errorData');
-        Fluttertoast.showToast(msg: 'Failed to upload image. Status code: ${response.statusCode}');
+        Fluttertoast.showToast(
+            msg: 'Failed to upload image. Status code: ${response.statusCode}');
       }
     } catch (e) {
       print('Error uploading to Cloudinary: $e');
@@ -125,16 +142,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Update Your Name'),
-        content: TextField(controller: _nameController, autofocus: true, decoration: const InputDecoration(labelText: 'Full Name')),
+        content: TextField(
+            controller: _nameController,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: 'Full Name')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           TextButton(
             onPressed: () async {
               if (_nameController.text.isNotEmpty) {
-                await currentUser?.updateDisplayName(_nameController.text.trim());
+                await currentUser
+                    ?.updateDisplayName(_nameController.text.trim());
                 Navigator.pop(context);
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Name updated successfully!')));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Name updated successfully!')));
                   setState(() {});
                 }
               }
@@ -161,10 +185,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('DELETE ACCOUNT'),
-        content: const Text('This is irreversible. All your data will be permanently deleted. Are you sure?'),
+        content: const Text(
+            'This is irreversible. All your data will be permanently deleted. Are you sure?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('DELETE', style: TextStyle(color: Colors.red))),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('DELETE', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -178,7 +207,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
   }
-  
+
   IconData _getIconForCategory(Category category) {
     if (category.iconCodePoint != null) {
       return IconData(category.iconCodePoint!, fontFamily: 'MaterialIcons');
@@ -208,13 +237,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: const Text('Add New Category'),
             content: SingleChildScrollView(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                TextField(controller: _categoryController, autofocus: true, decoration: const InputDecoration(hintText: 'Category Name')),
+                TextField(
+                    controller: _categoryController,
+                    autofocus: true,
+                    decoration:
+                        const InputDecoration(hintText: 'Category Name')),
                 const SizedBox(height: 20),
                 ListTile(
                   leading: Icon(selectedIcon),
                   title: const Text('Select Icon'),
                   onTap: () async {
-                    final IconData? newIcon = await showDialog<IconData>(context: context, builder: (context) => _buildIconPickerDialog());
+                    final IconData? newIcon = await showDialog<IconData>(
+                        context: context,
+                        builder: (context) => _buildIconPickerDialog());
                     if (newIcon != null) {
                       setDialogState(() => selectedIcon = newIcon);
                     }
@@ -223,11 +258,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ]),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel')),
               TextButton(
                 onPressed: () async {
-                  if (_categoryController.text.isNotEmpty && currentUser != null) {
-                    final newCategory = Category(name: _categoryController.text.trim(), iconCodePoint: selectedIcon?.codePoint);
+                  if (_categoryController.text.isNotEmpty &&
+                      currentUser != null) {
+                    final newCategory = Category(
+                        name: _categoryController.text.trim(),
+                        iconCodePoint: selectedIcon?.codePoint);
                     await dbHelper.addCategory(newCategory, currentUser!.uid);
                     _categoryController.clear();
                     Navigator.pop(context);
@@ -250,18 +290,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
         width: double.maxFinite,
         child: GridView.builder(
           shrinkWrap: true,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, crossAxisSpacing: 16, mainAxisSpacing: 16),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4, crossAxisSpacing: 16, mainAxisSpacing: 16),
           itemCount: _selectableIcons.length,
           itemBuilder: (context, index) {
             final icon = _selectableIcons[index];
-            return InkWell(onTap: () => Navigator.of(context).pop(icon), borderRadius: BorderRadius.circular(50), child: Icon(icon, size: 32));
+            return InkWell(
+                onTap: () => Navigator.of(context).pop(icon),
+                borderRadius: BorderRadius.circular(50),
+                child: Icon(icon, size: 32));
           },
         ),
       ),
-      actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel'))],
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'))
+      ],
     );
   }
-  
+
   Future<void> _logout() async {
     final bool? confirm = await showDialog(
       context: context,
@@ -269,8 +317,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: const Text('Confirm Logout'),
         content: const Text('Are you sure you want to log out?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Logout', style: TextStyle(color: Colors.red))),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Logout', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -282,15 +334,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _launchWhatsApp() async {
-    const phoneNumber = '+254748088741';
+    const phoneNumber = '+254717880017';
     const message = 'Hello, I have a question about the PatoTrack app.';
-    final whatsappUrl = Uri.parse("https://wa.me/$phoneNumber?text=${Uri.encodeComponent(message)}");
+    final whatsappUrl = Uri.parse(
+        "https://wa.me/$phoneNumber?text=${Uri.encodeComponent(message)}");
 
     try {
       if (await canLaunchUrl(whatsappUrl)) {
         await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
       } else {
-        Fluttertoast.showToast(msg: 'Could not launch WhatsApp. Is it installed?');
+        Fluttertoast.showToast(
+            msg: 'Could not launch WhatsApp. Is it installed?');
       }
     } catch (e) {
       Fluttertoast.showToast(msg: 'An error occurred.');
@@ -298,61 +352,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showFaqDialog() {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Frequently Asked Questions'),
-      content: const SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Getting Started',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Text(
-              'Use the tabs at the bottom to navigate. Add transactions from the Dashboard, view charts in Reports, and manage your account in Settings.\n',
-            ),
-            Text(
-              'How do I add a transaction?',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Text(
-              'Tap the "Add Transaction" button on the dashboard. Fill in the details and save.\n',
-            ),
-            Text(
-              'How does the M-Pesa sync work?',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Text(
-              'The app automatically reads your M-Pesa SMS messages to create transactions for you. It only reads messages from "MPESA".\n',
-            ),
-            Text(
-              'How do I delete something?',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Text(
-              'On the Dashboard, swipe a transaction from right to left. On the Settings page, tap the red trash can icon. All deletions will ask for confirmation.\n',
-            ),
-            Text(
-              'Is my data private?',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Text(
-              'Yes. All your financial data is stored locally on your device and is linked only to your account. No one else can see your data.',
-            ),
-          ],
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Frequently Asked Questions'),
+        content: const SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Getting Started',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'Use the tabs at the bottom to navigate. Add transactions from the Dashboard, view charts in Reports, and manage your account in Settings.\n',
+              ),
+              Text(
+                'How do I add a transaction?',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'Tap the "Add Transaction" button on the dashboard. Fill in the details and save.\n',
+              ),
+              Text(
+                'How does the M-Pesa sync work?',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'The app automatically reads your M-Pesa SMS messages to create transactions for you. It only reads messages from "MPESA".\n',
+              ),
+              Text(
+                'How do I delete something?',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'On the Dashboard, swipe a transaction from right to left. On the Settings page, tap the red trash can icon. All deletions will ask for confirmation.\n',
+              ),
+              Text(
+                'Is my data private?',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'Yes. All your financial data is stored locally on your device and is linked only to your account. No one else can see your data.',
+              ),
+            ],
+          ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Close'),
-        ),
-      ],
-    ),
-  );
-}
+    );
+  }
 
   Future<void> _handleRestore() async {
     if (currentUser == null) return;
@@ -361,10 +415,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Restore from Cloud'),
-        content: const Text('This will replace all local data with your cloud backup. Are you sure?'),
+        content: const Text(
+            'This will replace all local data with your cloud backup. Are you sure?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Restore', style: TextStyle(color: Colors.blue))),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child:
+                  const Text('Restore', style: TextStyle(color: Colors.blue))),
         ],
       ),
     );
@@ -373,10 +433,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() => _isRestoring = true);
       try {
         await dbHelper.restoreFromFirestore(currentUser!.uid);
-        Fluttertoast.showToast(msg: "Data restored successfully! Please restart the app to see all changes.", toastLength: Toast.LENGTH_LONG);
+        Fluttertoast.showToast(
+            msg:
+                "Data restored successfully! Please restart the app to see all changes.",
+            toastLength: Toast.LENGTH_LONG);
         _refreshCategoryList();
       } catch (e) {
-        Fluttertoast.showToast(msg: "Error restoring data: $e", backgroundColor: Colors.red, toastLength: Toast.LENGTH_LONG);
+        Fluttertoast.showToast(
+            msg: "Error restoring data: $e",
+            backgroundColor: Colors.red,
+            toastLength: Toast.LENGTH_LONG);
       } finally {
         if (mounted) setState(() => _isRestoring = false);
       }
@@ -408,10 +474,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         children: [
                           CircleAvatar(
                             radius: 40,
-                            backgroundImage: (currentUser!.photoURL != null) ? NetworkImage(currentUser!.photoURL!) : null,
-                            child: (currentUser!.photoURL == null) ? const Icon(Icons.person, size: 40) : null,
+                            backgroundImage: (currentUser!.photoURL != null)
+                                ? NetworkImage(currentUser!.photoURL!)
+                                : null,
+                            child: (currentUser!.photoURL == null)
+                                ? const Icon(Icons.person, size: 40)
+                                : null,
                           ),
-                          if (_isUploading) const CircularProgressIndicator(strokeWidth: 3),
+                          if (_isUploading)
+                            const CircularProgressIndicator(strokeWidth: 3),
                         ],
                       ),
                     ),
@@ -426,10 +497,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               Flexible(
                                 child: Text(
                                   currentUser!.displayName ?? 'User',
-                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                                  ),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleLarge
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onPrimaryContainer,
+                                      ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -439,16 +515,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 borderRadius: BorderRadius.circular(30),
                                 child: Padding(
                                   padding: const EdgeInsets.all(4.0),
-                                  child: Icon(Icons.edit, size: 20, color: Theme.of(context).colorScheme.onPrimaryContainer),
+                                  child: Icon(Icons.edit,
+                                      size: 20,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onPrimaryContainer),
                                 ),
                               ),
                             ],
                           ),
                           Text(
                             currentUser!.email ?? 'No email',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onPrimaryContainer.withOpacity(0.8),
-                            ),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onPrimaryContainer
+                                      .withOpacity(0.8),
+                                ),
                           ),
                         ],
                       ),
@@ -456,15 +542,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
               ),
-
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: Text('App Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              child: Text('App Settings',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
             ListTile(
               leading: const Icon(Icons.dark_mode_outlined),
               title: const Text('Dark Mode'),
-              trailing: Switch(value: themeProvider.themeMode == ThemeMode.dark, onChanged: (value) => themeProvider.toggleTheme(value)),
+              trailing: Switch(
+                  value: themeProvider.themeMode == ThemeMode.dark,
+                  onChanged: (value) => themeProvider.toggleTheme(value)),
             ),
             ListTile(
               leading: const Icon(Icons.lock_outline),
@@ -474,10 +562,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onChanged: (value) async {
                   final prefs = await SharedPreferences.getInstance();
                   if (value) {
-                    final success = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (context) => const PasscodeScreen(isSettingPasscode: true)));
-                    if (success == true) setState(() => _isPasscodeEnabled = true);
+                    final success = await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(
+                            builder: (context) =>
+                                const PasscodeScreen(isSettingPasscode: true)));
+                    if (success == true)
+                      setState(() => _isPasscodeEnabled = true);
                   } else {
-                    final success = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (context) => const PasscodeScreen(isSettingPasscode: false)));
+                    final success = await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(
+                            builder: (context) => const PasscodeScreen(
+                                isSettingPasscode: false)));
                     if (success == true) {
                       await prefs.remove('passcode');
                       setState(() => _isPasscodeEnabled = false);
@@ -491,9 +586,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 leading: const Icon(Icons.phonelink_lock),
                 title: const Text('Change Passcode'),
                 onTap: () async {
-                  final verified = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (context) => const PasscodeScreen(isSettingPasscode: false)));
+                  final verified = await Navigator.of(context).push<bool>(
+                      MaterialPageRoute(
+                          builder: (context) =>
+                              const PasscodeScreen(isSettingPasscode: false)));
                   if (verified == true) {
-                    await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (context) => const PasscodeScreen(isSettingPasscode: true)));
+                    await Navigator.of(context).push<bool>(MaterialPageRoute(
+                        builder: (context) =>
+                            const PasscodeScreen(isSettingPasscode: true)));
                   }
                 },
               ),
@@ -502,11 +602,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: const Text('Currency'),
               trailing: DropdownButton<String>(
                 value: _selectedCurrency,
-                items: <String>['KSh', 'USD', 'EUR', 'GBP'].map<DropdownMenuItem<String>>((String value) => DropdownMenuItem<String>(value: value, child: Text(value))).toList(),
+                items: <String>['KSh', 'USD', 'EUR', 'GBP']
+                    .map<DropdownMenuItem<String>>((String value) =>
+                        DropdownMenuItem<String>(
+                            value: value, child: Text(value)))
+                    .toList(),
                 onChanged: (String? newValue) {
                   if (newValue != null) {
                     _saveCurrencyPreference(newValue);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Currency updated!')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Currency updated!')));
                   }
                 },
               ),
@@ -514,7 +619,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const Divider(),
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: Text('Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              child: Text('Account',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
             ListTile(
               leading: const Icon(Icons.password),
@@ -523,25 +629,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.delete_forever, color: Colors.red),
-              title: const Text('Delete Account', style: TextStyle(color: Colors.red)),
+              title: const Text('Delete Account',
+                  style: TextStyle(color: Colors.red)),
               onTap: _deleteAccount,
             ),
             const Divider(),
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: Text('Data & Sync', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              child: Text('Data & Sync',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
             ListTile(
               leading: const Icon(Icons.cloud_download_outlined),
               title: const Text('Restore from Cloud'),
               subtitle: const Text('Download your backup on a new device.'),
-              trailing: _isRestoring ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3)) : null,
+              trailing: _isRestoring
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 3))
+                  : null,
               onTap: _isRestoring ? null : _handleRestore,
             ),
             const Divider(),
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: Text('Help & Support', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              child: Text('Help & Support',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
             ListTile(
               leading: const Icon(Icons.question_answer_outlined),
@@ -556,7 +670,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const Divider(),
             const Padding(
               padding: EdgeInsets.all(16.0),
-              child: Text('Manage Expense Categories', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              child: Text('Manage Expense Categories',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
             FutureBuilder<List<Category>>(
               future: _categoriesFuture,
@@ -565,7 +680,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const ListTile(title: Text('No categories yet. Add one!'));
+                  return const ListTile(
+                      title: Text('No categories yet. Add one!'));
                 }
                 final categories = snapshot.data!;
                 return ListView.builder(
@@ -575,32 +691,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   itemBuilder: (context, index) {
                     final category = categories[index];
                     return Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 4),
                       child: ListTile(
                         leading: CircleAvatar(
                           backgroundColor: _getColorForCategory(category),
-                          child: Icon(_getIconForCategory(category), color: Theme.of(context).colorScheme.onPrimaryContainer),
+                          child: Icon(_getIconForCategory(category),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onPrimaryContainer),
                         ),
                         title: Text(category.name),
                         trailing: IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
                           onPressed: () async {
-                             if (currentUser == null) return;
+                            if (currentUser == null) return;
                             final bool? confirm = await showDialog(
                               context: context,
                               builder: (context) => AlertDialog(
                                 title: const Text('Confirm Deletion'),
-                                content: Text('Are you sure you want to delete the "${category.name}" category?'),
+                                content: Text(
+                                    'Are you sure you want to delete the "${category.name}" category?'),
                                 actions: [
-                                  TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
-                                  TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+                                  TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(false),
+                                      child: const Text('Cancel')),
+                                  TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(true),
+                                      child: const Text('Delete',
+                                          style: TextStyle(color: Colors.red))),
                                 ],
                               ),
                             );
                             if (confirm == true) {
-                              await dbHelper.deleteCategory(category.id!, currentUser!.uid);
-                               if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Category Deleted')));
+                              await dbHelper.deleteCategory(
+                                  category.id!, currentUser!.uid);
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text('Category Deleted')));
                               }
                               _refreshCategoryList();
                             }
@@ -619,19 +750,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const Divider(),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
               child: Center(
                 child: SizedBox(
                   width: MediaQuery.of(context).size.width * 0.7,
                   child: ElevatedButton.icon(
                     onPressed: _isLoggingOut ? null : _logout,
                     icon: const Icon(Icons.logout),
-                    label: _isLoggingOut ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white)) : const Text('Logout'),
+                    label: _isLoggingOut
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 3, color: Colors.white))
+                        : const Text('Logout'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ),
