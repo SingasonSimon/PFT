@@ -1,4 +1,4 @@
-// lib/helpers/config.dart
+// AppConfig holds configuration constants for external services such as Cloudinary.
 
 class AppConfig {
   static const String cloudinaryCloudName = 'dn1qpjue4';

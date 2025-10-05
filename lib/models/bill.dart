@@ -1,14 +1,14 @@
-// lib/models/bill.dart
+// Bill model represents a bill, including recurring payment properties and due date.
 
 class Bill {
   final int? id;
   final String name;
   final double amount;
   final DateTime dueDate;
-  // NEW PROPERTIES for recurring bills
+  // Properties for handling recurring bills and their recurrence details.
   final bool isRecurring;
   final String? recurrenceType; // e.g., 'monthly', 'weekly'
-  final int? recurrenceValue;  // e.g., day of the month/week
+  final int? recurrenceValue; // e.g., day of the month/week
 
   Bill({
     this.id,

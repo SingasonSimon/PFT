@@ -1,4 +1,4 @@
-// lib/models/transaction.dart
+// Transaction model represents a financial transaction, including type, amount, and category.
 
 class Transaction {
   final int? id;
@@ -7,7 +7,7 @@ class Transaction {
   final String description;
   final String date;
   final int? categoryId;
-  // NEW: Property for 'business' or 'personal' tag
+  // Indicates whether the transaction is tagged as 'business' or 'personal'.
   final String tag;
 
   Transaction({
@@ -17,11 +17,11 @@ class Transaction {
     required this.description,
     required this.date,
     this.categoryId,
-    // Set a default value for the new tag
+    // Defaults to 'business' if not specified.
     this.tag = 'business',
   });
 
-  // NEW: A 'copyWith' method for easily creating modified copies
+  // Creates a copy of this transaction with optional new values for each property.
   Transaction copyWith({
     int? id,
     String? type,
@@ -50,7 +50,7 @@ class Transaction {
       'description': description,
       'date': date,
       'category_id': categoryId,
-      // Add the new tag to the map
+      // Include the tag property in the map for database storage.
       'tag': tag,
     };
   }
@@ -63,7 +63,7 @@ class Transaction {
       description: map['description'],
       date: map['date'],
       categoryId: map['category_id'],
-      // Read the tag from the map, with a fallback for older data
+      // Retrieve the tag from the map, defaulting to 'business' for legacy data.
       tag: map['tag'] ?? 'business',
     );
   }

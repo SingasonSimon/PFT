@@ -1,5 +1,4 @@
-// lib/models/category.dart
-
+// Category model represents a spending or income category, including icon and color information.
 
 class Category {
   final int? id;
