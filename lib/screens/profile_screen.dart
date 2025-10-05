@@ -39,7 +39,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _selectedCurrency = 'KSh';
   bool _isPasscodeEnabled = false;
 
-  final List<IconData> _selectableIcons = [
+  static const List<IconData> _selectableIcons = [
     Icons.shopping_cart, Icons.restaurant, Icons.house, Icons.flight,
     Icons.receipt, Icons.local_hospital, Icons.school, Icons.pets,
     Icons.phone_android, Icons.wifi, Icons.movie, Icons.spa,
