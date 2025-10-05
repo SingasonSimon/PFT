@@ -39,8 +39,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Future<Map<String, dynamic>> _prepareReportData() async {
     if (_currentUser == null) return {};
     final dbHelper = DatabaseHelper();
-    final transactions = await dbHelper.getTransactions(_currentUser!.uid);
-    final categories = await dbHelper.getCategories(_currentUser!.uid);
+    final transactions = await dbHelper.getTransactions(_currentUser.uid);
+    final categories = await dbHelper.getCategories(_currentUser.uid);
     final categoryMap = {for (var cat in categories) cat.id!: cat.name};
     return {'transactions': transactions, 'categoryMap': categoryMap};
   }
@@ -275,7 +275,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               ]),
                             )),
                       ] else
-                        Center(child: Padding(padding: const EdgeInsets.all(20.0), child: Text('No ${_selectedTagFilter} expense data to display.'))),
+                        Center(child: Padding(padding: const EdgeInsets.all(20.0), child: Text('No $_selectedTagFilter expense data to display.'))),
                     ],
                   ),
                 ),
@@ -293,7 +293,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
                           PdfHelper.generateAndSharePdf(
                             filteredTransactions,
-                            _currentUser!.displayName ?? 'User',
+                            _currentUser.displayName ?? 'User',
                             fileName,
                           );
                         }

@@ -1,7 +1,6 @@
 // lib/screens/profile_screen.dart
 
 import 'dart:convert';
-import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';

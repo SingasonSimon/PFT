@@ -43,7 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await _requestSmsPermission();
     if (!mounted) return;
     if (_currentUser != null) {
-      _smsService.syncMpesaMessages(_currentUser!.uid).then((_) {
+      _smsService.syncMpesaMessages(_currentUser.uid).then((_) {
         if (mounted) {
           _refreshData();
         }
@@ -81,8 +81,8 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       await Future.wait([
         _loadCurrencyPreference(),
-        _loadBills(_currentUser!.uid),
-        _loadTransactions(_currentUser!.uid),
+        _loadBills(_currentUser.uid),
+        _loadTransactions(_currentUser.uid),
       ]);
     } catch (e) {
       print("Error refreshing data: $e");
