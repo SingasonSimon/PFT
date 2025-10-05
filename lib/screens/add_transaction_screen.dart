@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../helpers/database_helper.dart';
-import '../models/category.dart'; // Make sure the Category model is imported
+import '../models/category.dart';
 import '../models/transaction.dart' as model;
 
 class AddTransactionScreen extends StatefulWidget {
@@ -22,9 +22,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   DateTime _selectedDate = DateTime.now();
   
   int? _selectedCategoryId;
-  // FIX #1: Changed the type from List<Map<String, dynamic>> to List<Category>
   late Future<List<Category>> _categoriesFuture;
   
+  // NEW: State variable to hold the selected tag
+  String _selectedTag = 'business';
+
   final dbHelper = DatabaseHelper();
   final User? _currentUser = FirebaseAuth.instance.currentUser;
 
@@ -51,12 +53,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
 
+    // UPDATED: Pass the selected tag when creating the transaction
     final newTransaction = model.Transaction(
       type: _transactionType,
       amount: double.parse(_amountController.text),
       description: _descriptionController.text,
       date: _selectedDate.toIso8601String(),
       categoryId: _transactionType == 'expense' ? _selectedCategoryId : null,
+      tag: _selectedTag,
     );
 
     await dbHelper.addTransaction(newTransaction, _currentUser.uid);
@@ -104,6 +108,21 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 });
               },
             ),
+            const SizedBox(height: 16),
+            
+            // NEW: Segmented button for Business vs Personal tag
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'business', label: Text('Business'), icon: Icon(Icons.business_center)),
+                ButtonSegment(value: 'personal', label: Text('Personal'), icon: Icon(Icons.person)),
+              ],
+              selected: {_selectedTag},
+              onSelectionChanged: (Set<String> newSelection) {
+                setState(() {
+                  _selectedTag = newSelection.first;
+                });
+              },
+            ),
             const SizedBox(height: 20),
 
             TextFormField(
@@ -127,7 +146,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             const SizedBox(height: 16),
             
             if (_transactionType == 'expense')
-              // FIX #2: Updated the FutureBuilder to use List<Category>
               FutureBuilder<List<Category>>(
                 future: _categoriesFuture,
                 builder: (context, snapshot) {
@@ -150,7 +168,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.category),
                     ),
-                    // FIX #3: Use object properties (.id and .name) to build the items
                     items: categories.map((category) {
                       return DropdownMenuItem<int>(
                         value: category.id,
@@ -163,7 +180,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       });
                     },
                     validator: (value) =>
-                        value == null ? 'Please select a category' : null,
+                        _selectedTag == 'business' && value == null ? 'Please select a category' : null,
                   );
                 },
               ),

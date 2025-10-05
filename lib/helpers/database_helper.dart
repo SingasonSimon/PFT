@@ -25,7 +25,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'PatoTrack.db');
     return await openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -49,7 +49,8 @@ class DatabaseHelper {
         description TEXT,
         date TEXT NOT NULL,
         category_id INTEGER,
-        userId TEXT NOT NULL
+        userId TEXT NOT NULL,
+        tag TEXT NOT NULL DEFAULT 'business'
       )
     ''');
     await db.execute('''
@@ -83,9 +84,11 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE bills ADD COLUMN recurrenceType TEXT');
       await db.execute('ALTER TABLE bills ADD COLUMN recurrenceValue INTEGER');
     }
+    if (oldVersion < 6) {
+      await db.execute("ALTER TABLE transactions ADD COLUMN tag TEXT NOT NULL DEFAULT 'business'");
+    }
   }
 
-  // --- Transaction Functions ---
   Future<int> addTransaction(model.Transaction transaction, String userId) async {
     final db = await database;
     final newId = await db.insert('transactions', transaction.toMap()..['userId'] = userId);
@@ -115,7 +118,6 @@ class DatabaseHelper {
     return result;
   }
 
-  // --- Category Functions ---
   Future<int> addCategory(Category category, String userId) async {
     final db = await database;
     final newId = await db.insert('categories', category.toMap()..['userId'] = userId);
@@ -153,16 +155,21 @@ class DatabaseHelper {
   }
 
   Future<int> getOrCreateCategory(String name, String userId) async {
+    print("--- Searching for category: '$name' for user: $userId ---");
     final existingCategory = await getCategoryByName(name, userId);
+
     if (existingCategory != null && existingCategory.id != null) {
+      print("--- Found existing category with ID: ${existingCategory.id} ---");
       return existingCategory.id!;
     } else {
+      print("--- Category NOT found. Creating a new one... ---");
       final newCategory = Category(name: name);
-      return await addCategory(newCategory, userId);
+      final newId = await addCategory(newCategory, userId);
+      print("--- Created new category with ID: $newId ---");
+      return newId;
     }
   }
 
-  // --- Bill Functions ---
   Future<int> addBill(Bill bill, String userId) async {
     final db = await database;
     final newId = await db.insert('bills', bill.toMap()..['userId'] = userId);
@@ -203,35 +210,29 @@ class DatabaseHelper {
     return result;
   }
 
-  // NEW: Function to restore all data from Firestore to the local SQLite database
   Future<void> restoreFromFirestore(String userId) async {
     final db = await database;
     final batch = db.batch();
 
-    // 1. Wipe local data for this user to prevent duplicates
     batch.delete('transactions', where: 'userId = ?', whereArgs: [userId]);
     batch.delete('categories', where: 'userId = ?', whereArgs: [userId]);
     batch.delete('bills', where: 'userId = ?', whereArgs: [userId]);
 
-    // 2. Fetch and insert transactions from Firestore
     final transactionSnap = await _firestore.collection('users').doc(userId).collection('transactions').get();
     for (final doc in transactionSnap.docs) {
       batch.insert('transactions', doc.data(), conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
-    // 3. Fetch and insert categories from Firestore
     final categorySnap = await _firestore.collection('users').doc(userId).collection('categories').get();
     for (final doc in categorySnap.docs) {
       batch.insert('categories', doc.data(), conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
-    // 4. Fetch and insert bills from Firestore
     final billSnap = await _firestore.collection('users').doc(userId).collection('bills').get();
     for (final doc in billSnap.docs) {
       batch.insert('bills', doc.data(), conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
-    // 5. Commit all operations at once for efficiency
     await batch.commit(noResult: true);
     print('--- Successfully restored data from Firestore ---');
   }

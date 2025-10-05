@@ -1,12 +1,17 @@
-import 'dart:io';
+// lib/screens/profile_screen.dart
+
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
+
+import '../helpers/config.dart'; // To access Cloudinary keys
 import '../helpers/database_helper.dart';
 import '../models/category.dart';
 import '../theme_provider.dart';
@@ -20,28 +25,20 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // Database helper for category and data operations
   final dbHelper = DatabaseHelper();
-  // Firebase authentication instance
   final _auth = FirebaseAuth.instance;
-  // Future for fetching categories
   late Future<List<Category>> _categoriesFuture;
-  // Controller for category name input
   final _categoryController = TextEditingController();
-  // Controller for user name input
   final _nameController = TextEditingController();
 
-  // Getter for the currently signed-in user
   User? get currentUser => _auth.currentUser;
 
-  // State variables for UI feedback and settings
   bool _isLoggingOut = false;
   bool _isUploading = false;
   bool _isRestoring = false;
   String _selectedCurrency = 'KSh';
   bool _isPasscodeEnabled = false;
 
-  // List of selectable icons for categories
   final List<IconData> _selectableIcons = [
     Icons.shopping_cart, Icons.restaurant, Icons.house, Icons.flight,
     Icons.receipt, Icons.local_hospital, Icons.school, Icons.pets,
@@ -52,8 +49,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _refreshCategoryList(); // Load categories on screen load
-    _loadPreferences();     // Load user preferences (currency, passcode)
+    _refreshCategoryList();
+    _loadPreferences();
   }
   
   @override
@@ -63,29 +60,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
   
-  // Pick an image from gallery and upload as profile picture
+  // UPDATED: This function now uploads to Cloudinary instead of Firebase Storage
   Future<void> _pickAndUploadImage() async {
     final imagePicker = ImagePicker();
-    final XFile? image = await imagePicker.pickImage(source: ImageSource.gallery);
+    final XFile? image = await imagePicker.pickImage(source: ImageSource.gallery, imageQuality: 70);
 
     if (image == null || currentUser == null) return;
 
     setState(() => _isUploading = true);
 
     try {
-      final storageRef = FirebaseStorage.instance.ref().child('profile_pictures').child('${currentUser!.uid}.jpg');
-      await storageRef.putFile(File(image.path));
-      final imageUrl = await storageRef.getDownloadURL();
-      await currentUser!.updatePhotoURL(imageUrl);
-      Fluttertoast.showToast(msg: 'Profile picture updated!');
-    } on FirebaseException catch (e) {
-      Fluttertoast.showToast(msg: 'Failed to upload image: ${e.message}');
+      final url = Uri.parse('https://api.cloudinary.com/v1_1/${AppConfig.cloudinaryCloudName}/image/upload');
+      final request = http.MultipartRequest('POST', url);
+
+      // Add file to the request
+      request.files.add(await http.MultipartFile.fromPath('file', image.path));
+
+      // Create a signature for secure, signed upload
+      final timestamp = (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString();
+      final stringToSign = 'timestamp=$timestamp${AppConfig.cloudinaryApiSecret}';
+      final signature = sha1.convert(utf8.encode(stringToSign)).toString();
+
+      // Add other required fields
+      request.fields['api_key'] = AppConfig.cloudinaryApiKey;
+      request.fields['timestamp'] = timestamp;
+      request.fields['signature'] = signature;
+      
+      final response = await request.send();
+
+      if (response.statusCode == 200) {
+        final responseData = await response.stream.bytesToString();
+        final responseJson = json.decode(responseData);
+        final imageUrl = responseJson['secure_url'];
+
+        await currentUser!.updatePhotoURL(imageUrl);
+        Fluttertoast.showToast(msg: 'Profile picture updated!');
+      } else {
+        final errorData = await response.stream.bytesToString();
+        print('Cloudinary Error: $errorData');
+        Fluttertoast.showToast(msg: 'Failed to upload image. Status code: ${response.statusCode}');
+      }
+
+    } catch (e) {
+      print('Error uploading to Cloudinary: $e');
+      Fluttertoast.showToast(msg: 'Failed to upload image: $e');
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
   }
 
-  // Load currency and passcode preferences from local storage
   Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     if (mounted) {
@@ -96,14 +119,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Save selected currency to local storage
   Future<void> _saveCurrencyPreference(String currency) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('currency', currency);
     setState(() => _selectedCurrency = currency);
   }
 
-  // Show dialog to update user's display name
   void _showUpdateNameDialog() {
     _nameController.text = currentUser?.displayName ?? '';
     showDialog(
@@ -131,7 +152,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Send password reset email to the user's email address
   Future<void> _sendPasswordResetEmail() async {
     if (currentUser?.email == null) return;
     try {
@@ -142,7 +162,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Delete the user's account after confirmation
   Future<void> _deleteAccount() async {
     final bool? confirm = await showDialog(
       context: context,
@@ -166,7 +185,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
   
-  // Get the icon for a given category, fallback to label icon
   IconData _getIconForCategory(Category category) {
     if (category.iconCodePoint != null) {
       return IconData(category.iconCodePoint!, fontFamily: 'MaterialIcons');
@@ -174,12 +192,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Icons.label;
   }
 
-  // Get the background color for a category icon
   Color _getColorForCategory(Category category) {
     return Theme.of(context).colorScheme.primaryContainer;
   }
 
-  // Refresh the list of categories from the database
   void _refreshCategoryList() {
     if (currentUser == null) return;
     setState(() {
@@ -187,7 +203,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
-  // Show dialog to add a new expense category
   void _showAddCategoryDialog() {
     _categoryController.clear();
     IconData? selectedIcon = Icons.label;
@@ -234,7 +249,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Dialog for picking an icon for a category
   Widget _buildIconPickerDialog() {
     return AlertDialog(
       title: const Text('Select an Icon'),
@@ -254,7 +268,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
   
-  // Log out the user after confirmation
   Future<void> _logout() async {
     final bool? confirm = await showDialog(
       context: context,
@@ -274,7 +287,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Open WhatsApp chat with support number
   Future<void> _launchWhatsApp() async {
     const phoneNumber = '+254748088741';
     const message = 'Hello, I have a question about the PatoTrack app.';
@@ -291,7 +303,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Show FAQ dialog with common questions and answers
   void _showFaqDialog() {
     showDialog(
       context: context,
@@ -316,7 +327,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Restore user data from cloud backup after confirmation
   Future<void> _handleRestore() async {
     if (currentUser == null) return;
 
@@ -348,30 +358,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Access the theme provider for dark mode toggling
     final themeProvider = Provider.of<ThemeProvider>(context);
-    // Get a text color that contrasts with the header background
-    final headerTextColor = Theme.of(context).colorScheme.onInverseSurface;
 
     return Scaffold(
-      // Use SafeArea to avoid system UI intrusions
       body: SafeArea(
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            // User profile header with name, email, and profile picture
             if (currentUser != null)
               UserAccountsDrawerHeader(
                 margin: EdgeInsets.zero,
                 accountName: Row(children: [
-                  Text(
-                    currentUser!.displayName ?? 'User',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: headerTextColor,
-                    ),
-                  ),
+                  Text(currentUser!.displayName ?? 'User', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   Material(
                     color: Colors.transparent,
                     child: InkWell(
@@ -384,10 +382,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                 ]),
-                accountEmail: Text(
-                  currentUser!.email ?? 'No email',
-                  style: TextStyle(color: headerTextColor),
-                ),
+                accountEmail: Text(currentUser!.email ?? 'No email'),
                 currentAccountPicture: GestureDetector(
                   onTap: _pickAndUploadImage,
                   child: Stack(alignment: Alignment.center, children: [
@@ -399,20 +394,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     if (_isUploading) const CircularProgressIndicator(),
                   ]),
                 ),
-                decoration: BoxDecoration(color: Theme.of(context).colorScheme.inversePrimary),
+                decoration: BoxDecoration(color: Theme.of(context).colorScheme.primaryContainer),
               ),
-            // App settings section
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: Text('App Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
-            // Dark mode toggle
             ListTile(
               leading: const Icon(Icons.dark_mode_outlined),
               title: const Text('Dark Mode'),
               trailing: Switch(value: themeProvider.themeMode == ThemeMode.dark, onChanged: (value) => themeProvider.toggleTheme(value)),
             ),
-            // Passcode lock toggle
             ListTile(
               leading: const Icon(Icons.lock_outline),
               title: const Text('Passcode Lock'),
@@ -433,7 +425,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 },
               ),
             ),
-            // Change passcode option (only if enabled)
             if (_isPasscodeEnabled)
               ListTile(
                 leading: const Icon(Icons.phonelink_lock),
@@ -445,7 +436,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   }
                 },
               ),
-            // Currency selection dropdown
             ListTile(
               leading: const Icon(Icons.money),
               title: const Text('Currency'),
@@ -461,30 +451,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const Divider(),
-            // Account management section
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: Text('Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
-            // Change password option
             ListTile(
               leading: const Icon(Icons.password),
               title: const Text('Change Password'),
               onTap: _sendPasswordResetEmail,
             ),
-            // Delete account option
             ListTile(
               leading: const Icon(Icons.delete_forever, color: Colors.red),
               title: const Text('Delete Account', style: TextStyle(color: Colors.red)),
               onTap: _deleteAccount,
             ),
             const Divider(),
-            // Data and sync section
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: Text('Data & Sync', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
-            // Restore data from cloud backup
             ListTile(
               leading: const Icon(Icons.cloud_download_outlined),
               title: const Text('Restore from Cloud'),
@@ -493,30 +478,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onTap: _isRestoring ? null : _handleRestore,
             ),
             const Divider(),
-            // Help and support section
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: Text('Help & Support', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
-            // FAQ dialog
             ListTile(
               leading: const Icon(Icons.question_answer_outlined),
               title: const Text('FAQ'),
               onTap: _showFaqDialog,
             ),
-            // WhatsApp support
             ListTile(
               leading: const Icon(Icons.support_agent),
               title: const Text('Contact via WhatsApp'),
               onTap: _launchWhatsApp,
             ),
             const Divider(),
-            // Category management section
             const Padding(
               padding: EdgeInsets.all(16.0),
               child: Text('Manage Expense Categories', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
-            // List of categories with delete option
             FutureBuilder<List<Category>>(
               future: _categoriesFuture,
               builder: (context, snapshot) {
@@ -544,7 +524,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         trailing: IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
                           onPressed: () async {
-                            if (currentUser == null) return;
+                             if (currentUser == null) return;
                             final bool? confirm = await showDialog(
                               context: context,
                               builder: (context) => AlertDialog(
@@ -558,7 +538,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             );
                             if (confirm == true) {
                               await dbHelper.deleteCategory(category.id!, currentUser!.uid);
-                              if (mounted) {
+                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Category Deleted')));
                               }
                               _refreshCategoryList();
@@ -571,14 +551,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 );
               },
             ),
-            // Add new category option
             ListTile(
               leading: const Icon(Icons.add),
               title: const Text('Add New Category'),
               onTap: _showAddCategoryDialog,
             ),
             const Divider(),
-            // Logout button
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
               child: Center(

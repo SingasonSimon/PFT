@@ -23,7 +23,6 @@ dependencies:
   google_fonts: ^6.2.1
   shared_preferences: ^2.2.3
   image_picker: ^1.1.2
-  firebase_storage: ^12.1.0
   flutter_pin_code_fields: ^2.2.0
   local_auth: ^2.2.0
   flutter_local_notifications: ^17.2.1
@@ -31,11 +30,14 @@ dependencies:
   permission_handler: ^11.3.1
   url_launcher: ^6.3.0
   
-  # MOVED & ADDED PACKAGES
-  cloud_firestore: ^5.0.1 # Added for cloud sync
-  fl_chart: ^0.68.0      # Moved from dev_dependencies
-  pdf: ^3.10.8           # Moved from dev_dependencies
-  printing: ^5.12.0      # Moved from dev_dependencies
+  cloud_firestore: ^5.0.1
+  fl_chart: ^0.68.0
+  pdf: ^3.10.8
+  printing: ^5.12.0
+  http: ^1.2.1
+
+  # NEW: Package for creating a secure upload signature
+  crypto: ^3.0.3
 
 
 dev_dependencies:

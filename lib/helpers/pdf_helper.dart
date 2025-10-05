@@ -1,12 +1,14 @@
 // lib/helpers/pdf_helper.dart
 
+import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../models/transaction.dart' as model;
 
 class PdfHelper {
-  static Future<void> generateAndSharePdf(List<model.Transaction> transactions) async {
+  // UPDATED: Function now accepts a userName
+  static Future<void> generateAndSharePdf(List<model.Transaction> transactions, String userName) async {
     final pdf = pw.Document();
 
     pdf.addPage(
@@ -14,9 +16,10 @@ class PdfHelper {
         pageTheme: const pw.PageTheme(
           margin: pw.EdgeInsets.all(32),
         ),
+        // UPDATED: Pass the userName to the header builder
+        header: (pw.Context context) => _buildHeader(userName),
         build: (pw.Context context) {
           return [
-            _buildHeader(),
             _buildTransactionTable(transactions),
             pw.Divider(),
             _buildSummary(transactions),
@@ -25,16 +28,17 @@ class PdfHelper {
       ),
     );
 
-    await Printing.sharePdf(bytes: await pdf.save(), filename: 'financial_report.pdf');
+    await Printing.sharePdf(bytes: await pdf.save(), filename: 'PatoTrack_Report.pdf');
   }
 
-  static pw.Widget _buildHeader() {
+  // UPDATED: Header now uses the userName
+  static pw.Widget _buildHeader(String userName) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        pw.Text('Financial Report', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
-        pw.Text('LedgerLite App', style: const pw.TextStyle(fontSize: 16)),
-        pw.Text('Report Generated: ${DateTime.now().toLocal().toString().split(' ')[0]}'),
+        pw.Text('Financial Report for: $userName', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+        pw.SizedBox(height: 4),
+        pw.Text('Report Generated on: ${DateFormat('yyyy-MM-dd').format(DateTime.now())}'),
         pw.SizedBox(height: 20),
       ],
     );
