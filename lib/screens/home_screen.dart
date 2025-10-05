@@ -43,8 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await _requestSmsPermission();
     if (!mounted) return;
     if (_currentUser != null) {
-      // Don't await this so the UI can load faster
-      _smsService.syncMpesaMessages(_currentUser.uid).then((_) {
+      _smsService.syncMpesaMessages(_currentUser!.uid).then((_) {
         if (mounted) {
           _refreshData();
         }
@@ -82,8 +81,8 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       await Future.wait([
         _loadCurrencyPreference(),
-        _loadBills(_currentUser.uid),
-        _loadTransactions(_currentUser.uid),
+        _loadBills(_currentUser!.uid),
+        _loadTransactions(_currentUser!.uid),
       ]);
     } catch (e) {
       print("Error refreshing data: $e");
@@ -185,7 +184,6 @@ class _HomeScreenState extends State<HomeScreen> {
         final currentUser = snapshot.data;
 
         return Scaffold(
-          // THE FIX: Wrap the body in a SafeArea widget.
           body: SafeArea(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -194,7 +192,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // The greeting container is now inside the SafeArea, so it will appear below the status bar
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                           child: Column(
@@ -221,15 +218,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 padding: const EdgeInsets.all(8.0),
                                 child: Column(
                                   children: [
-                                    SummaryCard(
-                                      title: 'Total Income', amount: _totalIncome, icon: Icons.trending_up, color: Colors.green, currencySymbol: _currencySymbol,
-                                    ),
-                                    SummaryCard(
-                                      title: 'Total Expenses', amount: _totalExpenses, icon: Icons.trending_down, color: Colors.red, currencySymbol: _currencySymbol,
-                                    ),
-                                    SummaryCard(
-                                      title: 'Balance', amount: _balance, icon: Icons.account_balance, color: _balance >= 0 ? Colors.blue : Colors.orange, currencySymbol: _currencySymbol,
-                                    ),
+                                    SummaryCard(title: 'Total Income', amount: _totalIncome, icon: Icons.trending_up, color: Colors.green, currencySymbol: _currencySymbol),
+                                    SummaryCard(title: 'Total Expenses', amount: _totalExpenses, icon: Icons.trending_down, color: Colors.red, currencySymbol: _currencySymbol),
+                                    SummaryCard(title: 'Balance', amount: _balance, icon: Icons.account_balance, color: _balance >= 0 ? Colors.blue : Colors.orange, currencySymbol: _currencySymbol),
                                   ],
                                 ),
                               ),
@@ -357,13 +348,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                   onPressed: () async {
                                     if (currentUser == null) return;
                                     
-                                    // Create the expense transaction
                                     final billTransaction = model.Transaction(
                                       type: 'expense', amount: bill.amount, description: 'Paid bill: ${bill.name}', date: DateTime.now().toIso8601String(), categoryId: await dbHelper.getOrCreateCategory('Bills', currentUser.uid),
                                     );
                                     await dbHelper.addTransaction(billTransaction, currentUser.uid);
 
-                                    // UPDATED: Smart logic for recurring vs one-time bills
                                     if (bill.isRecurring) {
                                       final nextDueDate = _calculateNextDueDate(bill);
                                       final updatedBill = bill.copyWith(dueDate: nextDueDate);
@@ -445,7 +434,14 @@ class _HomeScreenState extends State<HomeScreen> {
               leading: isMpesa 
                 ? Image.asset('assets/mpesa_logo.png', width: 40, height: 40)
                 : Icon(isIncome ? Icons.arrow_downward : Icons.arrow_upward, color: amountColor),
-              title: Text(transaction.description, maxLines: 2, overflow: TextOverflow.ellipsis,),
+              // THE FIX: Check if description is empty and provide a fallback title
+              title: Text(
+                transaction.description.isNotEmpty
+                  ? transaction.description
+                  : transaction.type.capitalize(),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
               subtitle: Text(transaction.date.split('T')[0]),
               trailing: Text(
                 '$amountPrefix$_currencySymbol ${currencyFormatter.format(transaction.amount)}',
@@ -493,5 +489,13 @@ class SummaryCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// NEW: Helper extension to capitalize strings
+extension StringExtension on String {
+  String capitalize() {
+    if (isEmpty) return this;
+    return "${this[0].toUpperCase()}${substring(1).toLowerCase()}";
   }
 }

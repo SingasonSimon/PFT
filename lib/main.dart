@@ -12,7 +12,6 @@ import 'theme_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/reports_screen.dart';
 import 'screens/profile_screen.dart';
-// No longer importing savings_screen.dart
 
 final NotificationService notificationService = NotificationService();
 
@@ -41,7 +40,7 @@ class PatoTrack extends StatelessWidget {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'LedgerLite',
+      title: 'PatoTrack', // Updated app title
       themeMode: themeProvider.themeMode,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
@@ -77,7 +76,6 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
-  // --- THE FIX IS HERE: SavingsScreen is removed ---
   static const List<Widget> _widgetOptions = <Widget>[
     HomeScreen(),
     ReportsScreen(),
@@ -94,27 +92,36 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(child: _widgetOptions.elementAt(_selectedIndex)),
-      bottomNavigationBar: BottomNavigationBar(
-        // We can go back to default type for 3 items
-        type: BottomNavigationBarType.shifting,
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
+
+      // UPDATED: Replaced BottomNavigationBar with the modern NavigationBar
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: _onItemTapped,
+        
+        // --- Style Customizations ---
+        height: 70,
+        indicatorColor: Theme.of(context).colorScheme.primaryContainer,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        // --------------------------
+
+        destinations: const <NavigationDestination>[
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard), // Filled icon for selected state
             label: 'Dashboard',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.pie_chart),
+          NavigationDestination(
+            icon: Icon(Icons.pie_chart_outline),
+            selectedIcon: Icon(Icons.pie_chart),
             label: 'Reports',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
             label: 'Settings',
           ),
         ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Theme.of(context).colorScheme.primary,
-        unselectedItemColor: Colors.grey, // Good to specify for this type
-        onTap: _onItemTapped,
       ),
     );
   }

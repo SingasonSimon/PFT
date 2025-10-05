@@ -7,8 +7,8 @@ import 'package:printing/printing.dart';
 import '../models/transaction.dart' as model;
 
 class PdfHelper {
-  // UPDATED: Function now accepts a userName
-  static Future<void> generateAndSharePdf(List<model.Transaction> transactions, String userName) async {
+  // UPDATED: Function now accepts a 'fileName' parameter
+  static Future<void> generateAndSharePdf(List<model.Transaction> transactions, String userName, String fileName) async {
     final pdf = pw.Document();
 
     pdf.addPage(
@@ -16,7 +16,6 @@ class PdfHelper {
         pageTheme: const pw.PageTheme(
           margin: pw.EdgeInsets.all(32),
         ),
-        // UPDATED: Pass the userName to the header builder
         header: (pw.Context context) => _buildHeader(userName),
         build: (pw.Context context) {
           return [
@@ -28,10 +27,10 @@ class PdfHelper {
       ),
     );
 
-    await Printing.sharePdf(bytes: await pdf.save(), filename: 'PatoTrack_Report.pdf');
+    // UPDATED: Use the new 'fileName' variable instead of a hardcoded string
+    await Printing.sharePdf(bytes: await pdf.save(), filename: fileName);
   }
 
-  // UPDATED: Header now uses the userName
   static pw.Widget _buildHeader(String userName) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,

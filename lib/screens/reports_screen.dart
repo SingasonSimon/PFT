@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../helpers/database_helper.dart';
 import '../helpers/pdf_helper.dart';
+import '../models/category.dart';
 import '../models/transaction.dart' as model;
 
 class ReportsScreen extends StatefulWidget {
@@ -21,7 +22,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
   final compactFormatter = NumberFormat.compact();
   final User? _currentUser = FirebaseAuth.instance.currentUser;
 
-  // NEW: State for the tag filter
   String _selectedTagFilter = 'all'; // 'all', 'business', 'personal'
 
   @override
@@ -39,14 +39,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Future<Map<String, dynamic>> _prepareReportData() async {
     if (_currentUser == null) return {};
     final dbHelper = DatabaseHelper();
-    final transactions = await dbHelper.getTransactions(_currentUser.uid);
-    final categories = await dbHelper.getCategories(_currentUser.uid);
+    final transactions = await dbHelper.getTransactions(_currentUser!.uid);
+    final categories = await dbHelper.getCategories(_currentUser!.uid);
     final categoryMap = {for (var cat in categories) cat.id!: cat.name};
     return {'transactions': transactions, 'categoryMap': categoryMap};
   }
 
   ({double profitLoss, String tip, Color color}) _getProfitLossAndTip(List<model.Transaction> transactions) {
-    // This calculation is now based on business profit, so we filter internally
     final businessTransactions = transactions.where((t) => t.tag == 'business' || t.type == 'income').toList();
     final now = DateTime.now();
     final firstDayOfMonth = DateTime(now.year, now.month, 1);
@@ -72,7 +71,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
   }
   
-  // NEW: Helper to prepare data for the Business vs Personal pie chart
   Map<String, double> _prepareTagBreakdownData(List<model.Transaction> transactions) {
     final Map<String, double> tagData = {'Business': 0.0, 'Personal': 0.0};
     for (var transaction in transactions.where((t) => t.type == 'expense')) {
@@ -131,19 +129,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
             final allTransactions = snapshot.data!['transactions'] as List<model.Transaction>;
             final categoryMap = snapshot.data!['categoryMap'] as Map<int, String>;
 
-            // Create a filtered list based on the selected tag
             final filteredTransactions = allTransactions.where((t) {
               if (_selectedTagFilter == 'all') return true;
-              if (t.type == 'income') return true; // Always include income
+              if (t.type == 'income') return true;
               return t.tag == _selectedTagFilter;
             }).toList();
 
-            // All data preparation now uses the appropriate list
             final expenseData = _prepareExpenseData(filteredTransactions, categoryMap);
             final barChartData = _prepareBarChartData(filteredTransactions);
             final totalExpenses = expenseData.values.fold(0.0, (sum, amount) => sum + amount);
-            final profitLossData = _getProfitLossAndTip(allTransactions); // P/L is always based on all business expenses
-            final tagBreakdownData = _prepareTagBreakdownData(allTransactions); // Tag breakdown uses all transactions
+            final profitLossData = _getProfitLossAndTip(allTransactions);
+            final tagBreakdownData = _prepareTagBreakdownData(allTransactions);
 
             return Column(
               children: [
@@ -279,7 +275,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               ]),
                             )),
                       ] else
-                        Center(child: Padding(padding: const EdgeInsets.all(20.0), child: Text('No $_selectedTagFilter expense data to display.'))),
+                        Center(child: Padding(padding: const EdgeInsets.all(20.0), child: Text('No ${_selectedTagFilter} expense data to display.'))),
                     ],
                   ),
                 ),
@@ -288,9 +284,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   child: SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
+                      // UPDATED: The onPressed logic now creates and passes a dynamic filename
                       onPressed: () {
                         if (_currentUser != null) {
-                           PdfHelper.generateAndSharePdf(filteredTransactions, _currentUser.displayName ?? 'User');
+                          final filterName = _selectedTagFilter.capitalize();
+                          final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                          final fileName = 'PatoTrack_${filterName}_Report_$dateStr.pdf';
+
+                          PdfHelper.generateAndSharePdf(
+                            filteredTransactions,
+                            _currentUser!.displayName ?? 'User',
+                            fileName,
+                          );
                         }
                       },
                       icon: const Icon(Icons.picture_as_pdf),
