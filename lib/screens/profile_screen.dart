@@ -299,21 +299,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showFaqDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Frequently Asked Questions'),
-        content: const SingleChildScrollView(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Getting Started', style: TextStyle(fontWeight: FontWeight.bold)),
-            Text('Use the tabs at the bottom to navigate...'),
-            // ... other FAQ text
-          ]),
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Frequently Asked Questions'),
+      content: const SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Getting Started',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            Text(
+              'Use the tabs at the bottom to navigate. Add transactions from the Dashboard, view charts in Reports, and manage your account in Settings.\n',
+            ),
+            Text(
+              'How do I add a transaction?',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            Text(
+              'Tap the "Add Transaction" button on the dashboard. Fill in the details and save.\n',
+            ),
+            Text(
+              'How does the M-Pesa sync work?',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            Text(
+              'The app automatically reads your M-Pesa SMS messages to create transactions for you. It only reads messages from "MPESA".\n',
+            ),
+            Text(
+              'How do I delete something?',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            Text(
+              'On the Dashboard, swipe a transaction from right to left. On the Settings page, tap the red trash can icon. All deletions will ask for confirmation.\n',
+            ),
+            Text(
+              'Is my data private?',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            Text(
+              'Yes. All your financial data is stored locally on your device and is linked only to your account. No one else can see your data.',
+            ),
+          ],
         ),
-        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
       ),
-    );
-  }
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+    ),
+  );
+}
 
   Future<void> _handleRestore() async {
     if (currentUser == null) return;
