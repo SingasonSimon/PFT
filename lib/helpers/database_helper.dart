@@ -226,30 +226,38 @@ String _capitalizeCategoryName(String name) {
   }
 
 Future<void> restoreFromFirestore(String userId) async {
-    final db = await database;
+  final db = await database;
 
-    // Delete existing records for the user
-    await db.delete('transactions', where: 'userId = ?', whereArgs: [userId]);
-    await db.delete('categories', where: 'userId = ?', whereArgs: [userId]);
-    await db.delete('bills', where: 'userId = ?', whereArgs: [userId]);
+  // Clear local user data
+  await db.delete('transactions', where: 'userId = ?', whereArgs: [userId]);
+  await db.delete('categories', where: 'userId = ?', whereArgs: [userId]);
+  await db.delete('bills', where: 'userId = ?', whereArgs: [userId]);
 
-    // Fetch data from Firestore and insert into SQLite
-    final transactionSnap = await _firestore.collection('users').doc(userId).collection('transactions').get();
-    for (final doc in transactionSnap.docs) {
+  // Restore categories first, normalizing names
+  final categorySnap = await _firestore.collection('users').doc(userId).collection('categories').get();
+  for (final doc in categorySnap.docs) {
+    final data = doc.data();
+    final name = (data['name'] as String).trim();
+    await getOrCreateCategory(name, userId); // safer than raw insert
+  }
+
+  // Restore bills
+  final billSnap = await _firestore.collection('users').doc(userId).collection('bills').get();
+  for (final doc in billSnap.docs) {
+    await db.insert('bills', doc.data(), conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  // Restore transactions
+  final transactionSnap = await _firestore.collection('users').doc(userId).collection('transactions').get();
+  for (final doc in transactionSnap.docs) {
+    try {
       await db.insert('transactions', doc.data(), conflictAlgorithm: ConflictAlgorithm.replace);
+    } catch (e) {
+      print('Skipped duplicate or invalid transaction: $e');
     }
+  }
 
-    final categorySnap = await _firestore.collection('users').doc(userId).collection('categories').get();
-    for (final doc in categorySnap.docs) {
-      await db.insert('categories', doc.data(), conflictAlgorithm: ConflictAlgorithm.replace);
-    }
-
-    final billSnap = await _firestore.collection('users').doc(userId).collection('bills').get();
-    for (final doc in billSnap.docs) {
-      await db.insert('bills', doc.data(), conflictAlgorithm: ConflictAlgorithm.replace);
-    }
-
-    print('--- Successfully restored data from Firestore ---');
+  print('--- Successfully restored data from Firestore ---');
 }
 
 }
