@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../helpers/database_helper.dart';
 import '../helpers/pdf_helper.dart';
-import '../models/category.dart';
 import '../models/transaction.dart' as model;
 
 class ReportsScreen extends StatefulWidget {

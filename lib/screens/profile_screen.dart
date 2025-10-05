@@ -566,8 +566,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         MaterialPageRoute(
                             builder: (context) =>
                                 const PasscodeScreen(isSettingPasscode: true)));
-                    if (success == true)
+                    if (success == true) {
                       setState(() => _isPasscodeEnabled = true);
+                    }
                   } else {
                     final success = await Navigator.of(context).push<bool>(
                         MaterialPageRoute(

@@ -4,10 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_pin_code_fields/flutter_pin_code_fields.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../main.dart'; // Import MainScreen to navigate to it
 
 class PasscodeScreen extends StatefulWidget {
   final bool isSettingPasscode;
-  const PasscodeScreen({super.key, required this.isSettingPasscode});
+  // NEW: Flag to check if we're unlocking the app on startup
+  final bool isAppUnlock;
+
+  const PasscodeScreen({
+    super.key, 
+    required this.isSettingPasscode,
+    this.isAppUnlock = false, // Default to false for existing calls
+  });
 
   @override
   State<PasscodeScreen> createState() => _PasscodeScreenState();
@@ -27,9 +35,11 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
   void _onPinCompleted(String pin) async {
     final prefs = await SharedPreferences.getInstance();
     final savedPin = prefs.getString('passcode');
+    final navigator = Navigator.of(context);
 
+    // This block is for SETTING a new passcode
     if (widget.isSettingPasscode) {
-      if (savedPin == pin) {
+      if (savedPin != null && savedPin == pin) {
         Fluttertoast.showToast(msg: 'New passcode cannot be the same as the old one.');
         setState(() {
           _pinToConfirm = null;
@@ -49,7 +59,7 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
         if (_pinToConfirm == pin) {
           await prefs.setString('passcode', pin);
           Fluttertoast.showToast(msg: 'Passcode Set Successfully');
-          Navigator.of(context).pop(true);
+          navigator.pop(true);
         } else {
           Fluttertoast.showToast(msg: 'Passcodes do not match. Please try again.');
           setState(() {
@@ -59,12 +69,22 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
           });
         }
       }
-    } else {
+    } 
+    // This block is for VERIFYING an existing passcode
+    else {
       if (savedPin == pin) {
-        Navigator.of(context).pop(true);
+        // UPDATED: Check if we are unlocking the app
+        if (widget.isAppUnlock) {
+          // If yes, replace the current screen with the MainScreen
+          navigator.pushReplacement(
+            MaterialPageRoute(builder: (context) => const MainScreen()),
+          );
+        } else {
+          // If no (e.g., just verifying from settings), just pop back
+          navigator.pop(true);
+        }
       } else {
         Fluttertoast.showToast(msg: 'Incorrect Passcode');
-        // This setState call clears the fields on failure
         setState(() {
           _pinController.clear();
         });
@@ -77,7 +97,8 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_title),
-        automaticallyImplyLeading: !widget.isSettingPasscode,
+        // UPDATED: Hide the back button only when unlocking the app on startup
+        automaticallyImplyLeading: !widget.isAppUnlock,
       ),
       body: Center(
         child: Padding(
