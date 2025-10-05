@@ -34,12 +34,13 @@ class DatabaseHelper {
   Future _onCreate(Database db, int version) async {
     await db.execute('''
       CREATE TABLE categories(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        iconCodePoint INTEGER,
-        colorValue INTEGER,
-        userId TEXT NOT NULL
-      )
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL COLLATE NOCASE,
+    iconCodePoint INTEGER,
+    colorValue INTEGER,
+    userId TEXT NOT NULL,
+    UNIQUE(name, userId)
+  )
     ''');
     await db.execute('''
       CREATE TABLE transactions(
@@ -154,21 +155,35 @@ class DatabaseHelper {
     return null;
   }
 
-  Future<int> getOrCreateCategory(String name, String userId) async {
-    print("--- Searching for category: '$name' for user: $userId ---");
-    final existingCategory = await getCategoryByName(name, userId);
+Future<int> getOrCreateCategory(String name, String userId) async {
+  final db = await database;
 
-    if (existingCategory != null && existingCategory.id != null) {
-      print("--- Found existing category with ID: ${existingCategory.id} ---");
-      return existingCategory.id!;
-    } else {
-      print("--- Category NOT found. Creating a new one... ---");
-      final newCategory = Category(name: name);
-      final newId = await addCategory(newCategory, userId);
-      print("--- Created new category with ID: $newId ---");
-      return newId;
-    }
+  // Normalize: trim spaces and lowercase for comparison
+  final normalizedName = name.trim().toLowerCase();
+
+  final existing = await db.query(
+    'categories',
+    where: 'LOWER(TRIM(name)) = ? AND userId = ?',
+    whereArgs: [normalizedName, userId],
+  );
+
+  if (existing.isNotEmpty) {
+    return existing.first['id'] as int;
   }
+
+  // If not found, insert normalized name (capitalize for display)
+  final id = await db.insert('categories', {
+    'name': _capitalizeCategoryName(normalizedName),
+    'userId': userId,
+  });
+
+  return id;
+}
+
+String _capitalizeCategoryName(String name) {
+  return name[0].toUpperCase() + name.substring(1);
+}
+
 
   Future<int> addBill(Bill bill, String userId) async {
     final db = await database;
@@ -210,30 +225,31 @@ class DatabaseHelper {
     return result;
   }
 
-  Future<void> restoreFromFirestore(String userId) async {
+Future<void> restoreFromFirestore(String userId) async {
     final db = await database;
-    final batch = db.batch();
 
-    batch.delete('transactions', where: 'userId = ?', whereArgs: [userId]);
-    batch.delete('categories', where: 'userId = ?', whereArgs: [userId]);
-    batch.delete('bills', where: 'userId = ?', whereArgs: [userId]);
+    // Delete existing records for the user
+    await db.delete('transactions', where: 'userId = ?', whereArgs: [userId]);
+    await db.delete('categories', where: 'userId = ?', whereArgs: [userId]);
+    await db.delete('bills', where: 'userId = ?', whereArgs: [userId]);
 
+    // Fetch data from Firestore and insert into SQLite
     final transactionSnap = await _firestore.collection('users').doc(userId).collection('transactions').get();
     for (final doc in transactionSnap.docs) {
-      batch.insert('transactions', doc.data(), conflictAlgorithm: ConflictAlgorithm.replace);
+      await db.insert('transactions', doc.data(), conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     final categorySnap = await _firestore.collection('users').doc(userId).collection('categories').get();
     for (final doc in categorySnap.docs) {
-      batch.insert('categories', doc.data(), conflictAlgorithm: ConflictAlgorithm.replace);
+      await db.insert('categories', doc.data(), conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     final billSnap = await _firestore.collection('users').doc(userId).collection('bills').get();
     for (final doc in billSnap.docs) {
-      batch.insert('bills', doc.data(), conflictAlgorithm: ConflictAlgorithm.replace);
+      await db.insert('bills', doc.data(), conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
-    await batch.commit(noResult: true);
     print('--- Successfully restored data from Firestore ---');
-  }
+}
+
 }
