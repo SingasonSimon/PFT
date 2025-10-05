@@ -7,10 +7,9 @@ plugins {
 
 android {
     namespace = "com.example.ledgerlite"
-    compileSdk = 36 // Use a specific SDK version
+    compileSdk = 36
 
     compileOptions {
-        // --- THE FIX IS HERE ---
         isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
@@ -22,14 +21,20 @@ android {
     
     defaultConfig {
         applicationId = "com.example.ledgerlite"
-        minSdk = flutter.minSdkVersion 
+        minSdk = flutter.minSdkVersion
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
     }
 
+    // UPDATED: This section enables ProGuard (code shrinking) for your release build
     buildTypes {
-        release {
+        getByName("release") {
+            isMinifyEnabled = true // This enables code shrinking
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro" // This tells it to use our new rules file
+            )
             signingConfig = signingConfigs.getByName("debug")
         }
     }
