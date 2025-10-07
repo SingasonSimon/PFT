@@ -1,10 +1,7 @@
-// lib/helpers/sms_service.dart
-
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'database_helper.dart';
 import '../models/transaction.dart' as model;
-// Import the Category model
 
 class SmsService {
   final SmsQuery _query = SmsQuery();
@@ -16,13 +13,13 @@ class SmsService {
       final messages = await _query.querySms(
         kinds: [SmsQueryKind.inbox],
         address: 'MPESA',
-        count: 50,
+        count: 50, // Fetches the 50 most recent messages
       );
 
       final existingTransactions = await dbHelper.getTransactions(userId);
 
       for (var message in messages) {
-        if (message.body == null) continue;
+        if (message.body == null || message.date == null) continue;
 
         final transactionCode = _getTransactionCode(message.body!);
         if (transactionCode == null) continue;
@@ -30,7 +27,8 @@ class SmsService {
         final isDuplicate = existingTransactions.any((t) => t.description.contains(transactionCode));
         if (isDuplicate) continue;
 
-        _parseAndSave(message.body!, transactionCode, userId);
+        // Pass the message date to the parsing function
+        _parseAndSave(message, transactionCode, userId);
       }
     }
   }
@@ -41,7 +39,8 @@ class SmsService {
     return match?.group(1);
   }
 
-  Future<void> _parseAndSave(String body, String transactionCode, String userId) async {
+  Future<void> _parseAndSave(SmsMessage message, String transactionCode, String userId) async {
+    final String body = message.body!;
     String description = '';
     double? amount;
     String transactionType = 'expense';
@@ -81,7 +80,7 @@ class SmsService {
       description = 'Bought airtime for $number';
       transactionType = 'expense';
     } else {
-      description = 'M-Pesa Transaction'; // Fallback
+      description = 'M-Pesa Transaction';
     }
     
     description += ' ($transactionCode)';
@@ -90,7 +89,8 @@ class SmsService {
       type: transactionType,
       amount: amount,
       description: description,
-      date: DateTime.now().toIso8601String(),
+      // THE FIX: Use the actual date from the SMS message
+      date: (message.date ?? DateTime.now()).toIso8601String(),
       categoryId: await _getOrCreateMpesaCategory(userId),
     );
 
@@ -98,9 +98,10 @@ class SmsService {
     print("MPESA transaction ($transactionCode) automatically synced!");
   }
 
-  // CORRECTED: This method now correctly uses the new function from DatabaseHelper.
+  // UPDATED: This now correctly specifies the category type
   Future<int> _getOrCreateMpesaCategory(String userId) async {
     const categoryName = 'M-Pesa';
-    return dbHelper.getOrCreateCategory(categoryName, userId);
+    // M-Pesa is treated as an 'expense' category for organizational purposes
+    return dbHelper.getOrCreateCategory(categoryName, userId, type: 'expense');
   }
 }

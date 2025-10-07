@@ -1,11 +1,10 @@
-// lib/screens/reports_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../helpers/database_helper.dart';
 import '../helpers/pdf_helper.dart';
+import '../models/category.dart';
 import '../models/transaction.dart' as model;
 
 class ReportsScreen extends StatefulWidget {
@@ -21,7 +20,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
   final compactFormatter = NumberFormat.compact();
   final User? _currentUser = FirebaseAuth.instance.currentUser;
 
-  String _selectedTagFilter = 'all'; // 'all', 'business', 'personal'
+  String _selectedTagFilter = 'business';
+  String _selectedTimeFilter = 'month';
 
   @override
   void initState() {
@@ -38,35 +38,52 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Future<Map<String, dynamic>> _prepareReportData() async {
     if (_currentUser == null) return {};
     final dbHelper = DatabaseHelper();
-    final transactions = await dbHelper.getTransactions(_currentUser.uid);
-    final categories = await dbHelper.getCategories(_currentUser.uid);
+    final transactions = await dbHelper.getTransactions(_currentUser!.uid);
+    final categories = await dbHelper.getCategories(_currentUser!.uid);
     final categoryMap = {for (var cat in categories) cat.id!: cat.name};
     return {'transactions': transactions, 'categoryMap': categoryMap};
   }
 
-  ({double profitLoss, String tip, Color color}) _getProfitLossAndTip(List<model.Transaction> transactions) {
+  ({double profitLoss, String tip, Color color}) _getProfitLossAndTip(List<model.Transaction> transactions, String timeFilter) {
     final businessTransactions = transactions.where((t) => t.tag == 'business' || t.type == 'income').toList();
-    final now = DateTime.now();
-    final firstDayOfMonth = DateTime(now.year, now.month, 1);
+    
+    DateTime now = DateTime.now();
+    DateTime startDate;
 
-    final monthlyTransactions = businessTransactions.where((t) {
+    switch (timeFilter) {
+      case 'week':
+        startDate = now.subtract(Duration(days: now.weekday - 1));
+        startDate = DateTime(startDate.year, startDate.month, startDate.day);
+        break;
+      case 'year':
+        startDate = DateTime(now.year, 1, 1);
+        break;
+      case 'month':
+      default:
+        startDate = DateTime(now.year, now.month, 1);
+        break;
+    }
+
+    final periodTransactions = businessTransactions.where((t) {
       try {
-        return DateTime.parse(t.date).isAfter(firstDayOfMonth);
+        return DateTime.parse(t.date).isAfter(startDate);
       } catch (e) {
         return false;
       }
     }).toList();
 
-    double income = monthlyTransactions.where((t) => t.type == 'income').fold(0.0, (sum, t) => sum + t.amount);
-    double expenses = monthlyTransactions.where((t) => t.type == 'expense').fold(0.0, (sum, t) => sum + t.amount);
+    double income = periodTransactions.where((t) => t.type == 'income').fold(0.0, (sum, t) => sum + t.amount);
+    double expenses = periodTransactions.where((t) => t.type == 'expense').fold(0.0, (sum, t) => sum + t.amount);
     double profitLoss = income - expenses;
+    
+    String periodText = timeFilter == 'week' ? 'this week' : (timeFilter == 'month' ? 'this month' : 'this year');
 
     if (profitLoss > 0) {
-      return (profitLoss: profitLoss, tip: 'Great business month! You are in profit.', color: Colors.green);
+      return (profitLoss: profitLoss, tip: 'Great business performance $periodText!', color: Colors.green);
     } else if (profitLoss < 0) {
-      return (profitLoss: profitLoss, tip: 'Your business is at a loss this month. Review your business expenses.', color: Colors.red);
+      return (profitLoss: profitLoss, tip: 'Your business is at a loss $periodText. Review expenses.', color: Colors.red);
     } else {
-      return (profitLoss: 0, tip: 'Your business has broken even this month.', color: Colors.orange);
+      return (profitLoss: 0, tip: 'Your business has broken even $periodText.', color: Colors.orange);
     }
   }
   
@@ -128,22 +145,60 @@ class _ReportsScreenState extends State<ReportsScreen> {
             final allTransactions = snapshot.data!['transactions'] as List<model.Transaction>;
             final categoryMap = snapshot.data!['categoryMap'] as Map<int, String>;
 
-            final filteredTransactions = allTransactions.where((t) {
+            DateTime now = DateTime.now();
+            DateTime startDate;
+            switch (_selectedTimeFilter) {
+              case 'week':
+                startDate = now.subtract(Duration(days: now.weekday - 1));
+                startDate = DateTime(startDate.year, startDate.month, startDate.day);
+                break;
+              case 'year':
+                startDate = DateTime(now.year, 1, 1);
+                break;
+              case 'month':
+              default:
+                startDate = DateTime(now.year, now.month, 1);
+                break;
+            }
+
+            final timeFilteredTransactions = allTransactions.where((t) {
+              try { return DateTime.parse(t.date).isAfter(startDate); } catch (e) { return false; }
+            }).toList();
+
+            final fullyFilteredTransactions = timeFilteredTransactions.where((t) {
               if (_selectedTagFilter == 'all') return true;
               if (t.type == 'income') return true;
               return t.tag == _selectedTagFilter;
             }).toList();
 
-            final expenseData = _prepareExpenseData(filteredTransactions, categoryMap);
-            final barChartData = _prepareBarChartData(filteredTransactions);
+            final expenseData = _prepareExpenseData(fullyFilteredTransactions, categoryMap);
+            final barChartData = _prepareBarChartData(fullyFilteredTransactions);
             final totalExpenses = expenseData.values.fold(0.0, (sum, amount) => sum + amount);
-            final profitLossData = _getProfitLossAndTip(allTransactions);
-            final tagBreakdownData = _prepareTagBreakdownData(allTransactions);
+            final profitLossData = _getProfitLossAndTip(allTransactions, _selectedTimeFilter);
+            final tagBreakdownData = _prepareTagBreakdownData(timeFilteredTransactions);
 
             return Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: SegmentedButton<String>(
+                          segments: const [
+                            ButtonSegment(value: 'week', label: Text('Week')),
+                            ButtonSegment(value: 'month', label: Text('Month')),
+                            ButtonSegment(value: 'year', label: Text('Year')),
+                          ],
+                          selected: {_selectedTimeFilter},
+                          onSelectionChanged: (newSelection) => setState(() => _selectedTimeFilter = newSelection.first),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                   child: SegmentedButton<String>(
                     segments: const [
                       ButtonSegment(value: 'all', label: Text('All Expenses')),
@@ -151,11 +206,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       ButtonSegment(value: 'personal', label: Text('Personal')),
                     ],
                     selected: {_selectedTagFilter},
-                    onSelectionChanged: (newSelection) {
-                      setState(() {
-                        _selectedTagFilter = newSelection.first;
-                      });
-                    },
+                    onSelectionChanged: (newSelection) => setState(() => _selectedTagFilter = newSelection.first),
                   ),
                 ),
                 Expanded(
@@ -167,7 +218,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         child: Padding(
                           padding: const EdgeInsets.all(16.0),
                           child: Column(children: [
-                            Text('This Month\'s Business Profit/Loss', style: Theme.of(context).textTheme.titleMedium),
+                            Text('Business Profit/Loss (${_selectedTimeFilter.capitalize()})', style: Theme.of(context).textTheme.titleMedium),
                             const SizedBox(height: 8),
                             Text(
                               '$_currencySymbol ${NumberFormat.currency(locale: 'en_US', symbol: '').format(profitLossData.profitLoss)}',
@@ -179,12 +230,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      Text('Income vs. Expenses (${_selectedTagFilter.capitalize()})', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                      Text('Income vs. Expenses (${_selectedTimeFilter.capitalize()}, ${_selectedTagFilter.capitalize()})', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                       const SizedBox(height: 20),
                       SizedBox(
-                        height: 250,
+                        height: 250, 
                         child: BarChart(
-                          BarChartData(
+                           BarChartData(
                             alignment: BarChartAlignment.spaceAround,
                             barGroups: [
                               _buildBarGroupData(0, barChartData['Income'] ?? 0, Colors.green),
@@ -219,14 +270,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             borderData: FlBorderData(show: true, border: Border(bottom: BorderSide(color: Colors.grey.shade300, width: 2), left: BorderSide(color: Colors.grey.shade300, width: 2))),
                             gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey.shade200, strokeWidth: 1)),
                           ),
-                        ),
+                        )
                       ),
                       const SizedBox(height: 40),
+                      
                       if (tagBreakdownData['Business']! > 0 || tagBreakdownData['Personal']! > 0) ...[
-                        const Text('Business vs. Personal Spending', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                        Text('Business vs. Personal (${_selectedTimeFilter.capitalize()})', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                         const SizedBox(height: 20),
                         SizedBox(
-                          height: 200,
+                          height: 200, 
                           child: PieChart(
                             PieChartData(
                               sectionsSpace: 2,
@@ -238,15 +290,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                   PieChartSectionData(value: tagBreakdownData['Personal'], title: 'Personal', color: Colors.purple, radius: 80),
                               ],
                             ),
-                          ),
+                          )
                         ),
                         const SizedBox(height: 40),
                       ],
+                      
                       if (expenseData.isNotEmpty) ...[
-                        Text('Expense Breakdown by Category (${_selectedTagFilter.capitalize()})', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                        Text('Expense Breakdown (${_selectedTimeFilter.capitalize()}, ${_selectedTagFilter.capitalize()})', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                         const SizedBox(height: 20),
                         SizedBox(
-                          height: 300,
+                          height: 300, 
                           child: PieChart(
                             PieChartData(
                               sectionsSpace: 2,
@@ -262,7 +315,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                 );
                               }).toList(),
                             ),
-                          ),
+                          )
                         ),
                         const SizedBox(height: 24),
                         ...expenseData.entries.map((entry) => Padding(
@@ -274,7 +327,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               ]),
                             )),
                       ] else
-                        Center(child: Padding(padding: const EdgeInsets.all(20.0), child: Text('No $_selectedTagFilter expense data to display.'))),
+                        Center(child: Padding(padding: const EdgeInsets.all(20.0), child: Text('No ${_selectedTagFilter} expense data for this period.'))),
                     ],
                   ),
                 ),
@@ -283,18 +336,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   child: SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      // UPDATED: The onPressed logic now creates and passes a dynamic filename
                       onPressed: () {
                         if (_currentUser != null) {
                           final filterName = _selectedTagFilter.capitalize();
                           final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
                           final fileName = 'PatoTrack_${filterName}_Report_$dateStr.pdf';
 
-                          PdfHelper.generateAndSharePdf(
-                            filteredTransactions,
-                            _currentUser.displayName ?? 'User',
-                            fileName,
-                          );
+                          PdfHelper.generateAndSharePdf(fullyFilteredTransactions, _currentUser!.displayName ?? 'User', fileName);
                         }
                       },
                       icon: const Icon(Icons.picture_as_pdf),
@@ -314,6 +362,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
+  // RESTORED: Full implementation of _buildBarGroupData
   BarChartGroupData _buildBarGroupData(int x, double y, Color color) {
     return BarChartGroupData(
       x: x,
@@ -328,6 +377,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
+  // RESTORED: Full implementation of _getColorForCategory
   Color _getColorForCategory(String category) {
     int hash = category.hashCode;
     return Color((hash & 0x00FFFFFF) | 0xFF000000).withOpacity(0.8);
@@ -340,3 +390,4 @@ extension StringExtension on String {
     return "${this[0].toUpperCase()}${substring(1)}";
   }
 }
+
