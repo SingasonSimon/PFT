@@ -288,7 +288,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // RESTORED: Full implementation of _buildUpcomingBillsSection
   Widget _buildUpcomingBillsSection(User? currentUser) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -364,8 +363,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                   onPressed: () async {
                                     if (currentUser == null) return;
                                     
+                                    // THE FIX: Correctly call getOrCreateCategory with positional arguments
                                     final billTransaction = model.Transaction(
-                                      type: 'expense', amount: bill.amount, description: 'Paid bill: ${bill.name}', date: DateTime.now().toIso8601String(), categoryId: await dbHelper.getOrCreateCategory(name: 'Bills', userId: currentUser.uid),
+                                      type: 'expense', 
+                                      amount: bill.amount, 
+                                      description: 'Paid bill: ${bill.name}', 
+                                      date: DateTime.now().toIso8601String(), 
+                                      categoryId: await dbHelper.getOrCreateCategory('Bills', currentUser.uid, type: 'expense'),
                                     );
                                     await dbHelper.addTransaction(billTransaction, currentUser.uid);
 
@@ -501,7 +505,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// RESTORED: Full implementation of SummaryCard
 class SummaryCard extends StatelessWidget {
   final String title;
   final double amount;
