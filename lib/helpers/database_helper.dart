@@ -1,5 +1,3 @@
-// DatabaseHelper manages local SQLite database operations and synchronizes with Firestore.
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sqflite/sqflite.dart' hide Transaction;
 import 'package:path/path.dart';
@@ -25,7 +23,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'PatoTrack.db');
     return await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -34,13 +32,14 @@ class DatabaseHelper {
   Future _onCreate(Database db, int version) async {
     await db.execute('''
       CREATE TABLE categories(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL COLLATE NOCASE,
-    iconCodePoint INTEGER,
-    colorValue INTEGER,
-    userId TEXT NOT NULL,
-    UNIQUE(name, userId)
-  )
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL COLLATE NOCASE,
+        type TEXT NOT NULL DEFAULT 'expense',
+        iconCodePoint INTEGER,
+        colorValue INTEGER,
+        userId TEXT NOT NULL,
+        UNIQUE(name, userId, type)
+      )
     ''');
     await db.execute('''
       CREATE TABLE transactions(
@@ -77,37 +76,29 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE bills ADD COLUMN userId TEXT');
     }
     if (oldVersion < 4) {
-      await db
-          .execute('ALTER TABLE categories ADD COLUMN iconCodePoint INTEGER');
+      await db.execute('ALTER TABLE categories ADD COLUMN iconCodePoint INTEGER');
       await db.execute('ALTER TABLE categories ADD COLUMN colorValue INTEGER');
     }
     if (oldVersion < 5) {
-      await db.execute(
-          'ALTER TABLE bills ADD COLUMN isRecurring INTEGER NOT NULL DEFAULT 0');
+      await db.execute('ALTER TABLE bills ADD COLUMN isRecurring INTEGER NOT NULL DEFAULT 0');
       await db.execute('ALTER TABLE bills ADD COLUMN recurrenceType TEXT');
       await db.execute('ALTER TABLE bills ADD COLUMN recurrenceValue INTEGER');
     }
     if (oldVersion < 6) {
-      await db.execute(
-          "ALTER TABLE transactions ADD COLUMN tag TEXT NOT NULL DEFAULT 'business'");
+      await db.execute("ALTER TABLE transactions ADD COLUMN tag TEXT NOT NULL DEFAULT 'business'");
+    }
+    if (oldVersion < 7) {
+      await db.execute("ALTER TABLE categories ADD COLUMN type TEXT NOT NULL DEFAULT 'expense'");
     }
   }
 
-  Future<int> addTransaction(
-      model.Transaction transaction, String userId) async {
+  // --- Transaction Functions ---
+  Future<int> addTransaction(model.Transaction transaction, String userId) async {
     final db = await database;
-    final newId = await db.insert(
-        'transactions', transaction.toMap()..['userId'] = userId);
+    final newId = await db.insert('transactions', transaction.toMap()..['userId'] = userId);
     try {
-      final docData = transaction.toMap()
-        ..['id'] = newId
-        ..['userId'] = userId;
-      await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('transactions')
-          .doc(newId.toString())
-          .set(docData);
+      final docData = transaction.toMap()..['id'] = newId..['userId'] = userId;
+      await _firestore.collection('users').doc(userId).collection('transactions').doc(newId.toString()).set(docData);
     } catch (e) {
       print('Firestore sync failed for addTransaction: $e');
     }
@@ -116,124 +107,116 @@ class DatabaseHelper {
 
   Future<List<model.Transaction>> getTransactions(String userId) async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('transactions',
-        where: 'userId = ?', whereArgs: [userId], orderBy: 'date DESC');
-    return List.generate(
-        maps.length, (i) => model.Transaction.fromMap(maps[i]));
+    final List<Map<String, dynamic>> maps = await db.query('transactions', where: 'userId = ?', whereArgs: [userId], orderBy: 'date DESC');
+    return List.generate(maps.length, (i) => model.Transaction.fromMap(maps[i]));
+  }
+
+  // NEW: Function to update a transaction in both local DB and Firestore
+  Future<int> updateTransaction(model.Transaction transaction, String userId) async {
+    final db = await database;
+    final result = await db.update(
+      'transactions',
+      transaction.toMap(),
+      where: 'id = ? AND userId = ?',
+      whereArgs: [transaction.id, userId],
+    );
+    try {
+      await _firestore.collection('users').doc(userId).collection('transactions').doc(transaction.id.toString()).update(transaction.toMap());
+    } catch (e) {
+      print('Firestore sync failed for updateTransaction: $e');
+    }
+    return result;
   }
 
   Future<int> deleteTransaction(int id, String userId) async {
     final db = await database;
-    final result = await db.delete('transactions',
-        where: 'id = ? AND userId = ?', whereArgs: [id, userId]);
+    final result = await db.delete('transactions', where: 'id = ? AND userId = ?', whereArgs: [id, userId]);
     try {
-      await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('transactions')
-          .doc(id.toString())
-          .delete();
+      await _firestore.collection('users').doc(userId).collection('transactions').doc(id.toString()).delete();
     } catch (e) {
       print('Firestore sync failed for deleteTransaction: $e');
     }
     return result;
   }
 
+  // --- Category Functions ---
   Future<int> addCategory(Category category, String userId) async {
     final db = await database;
-    final newId =
-        await db.insert('categories', category.toMap()..['userId'] = userId);
-    try {
-      final docData = category.toMap()
-        ..['id'] = newId
-        ..['userId'] = userId;
-      await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('categories')
-          .doc(newId.toString())
-          .set(docData);
-    } catch (e) {
-      print('Firestore sync failed for addCategory: $e');
+    final map = category.toMap()..['userId'] = userId;
+    final newId = await db.insert('categories', map, conflictAlgorithm: ConflictAlgorithm.ignore);
+    if (newId != 0) {
+        try {
+        final docData = category.toMap()..['id'] = newId..['userId'] = userId;
+        await _firestore.collection('users').doc(userId).collection('categories').doc(newId.toString()).set(docData);
+      } catch(e) {
+        print('Firestore sync failed for addCategory: $e');
+      }
     }
     return newId;
   }
 
-  Future<List<Category>> getCategories(String userId) async {
+  Future<int> updateCategory(Category category, String userId) async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('categories',
-        where: 'userId = ?', whereArgs: [userId], orderBy: 'name');
-    return List.generate(maps.length, (i) => Category.fromMap(maps[i]));
+    final result = await db.update('categories', category.toMap(), where: 'id = ? AND userId = ?', whereArgs: [category.id, userId]);
+    try {
+      await _firestore.collection('users').doc(userId).collection('categories').doc(category.id.toString()).update(category.toMap());
+    } catch (e) {
+      print('Firestore sync failed for updateCategory: $e');
+    }
+    return result;
   }
 
+  Future<List<Category>> getCategories(String userId, {String? type}) async {
+    final db = await database;
+    List<Map<String, dynamic>> maps;
+    if (type != null) {
+      maps = await db.query('categories', where: 'userId = ? AND type = ?', whereArgs: [userId, type], orderBy: 'name');
+    } else {
+      maps = await db.query('categories', where: 'userId = ?', whereArgs: [userId], orderBy: 'name');
+    }
+    return List.generate(maps.length, (i) => Category.fromMap(maps[i]));
+  }
+  
   Future<int> deleteCategory(int id, String userId) async {
     final db = await database;
-    final result = await db.delete('categories',
-        where: 'id = ? AND userId = ?', whereArgs: [id, userId]);
+    final result = await db.delete('categories', where: 'id = ? AND userId = ?', whereArgs: [id, userId]);
     try {
-      await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('categories')
-          .doc(id.toString())
-          .delete();
+      await _firestore.collection('users').doc(userId).collection('categories').doc(id.toString()).delete();
     } catch (e) {
       print('Firestore sync failed for deleteCategory: $e');
     }
     return result;
   }
 
-  Future<Category?> getCategoryByName(String name, String userId) async {
+  Future<Category?> getCategoryByName(String name, String userId, String type) async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('categories',
-        where: 'UPPER(name) = ? AND userId = ?',
-        whereArgs: [name.toUpperCase(), userId]);
+    final List<Map<String, dynamic>> maps = await db.query('categories', where: 'name = ? AND userId = ? AND type = ?', whereArgs: [name, userId, type]);
     if (maps.isNotEmpty) return Category.fromMap(maps.first);
     return null;
   }
-
-  Future<int> getOrCreateCategory(String name, String userId) async {
-    final db = await database;
-
-    // Normalize the category name by trimming spaces and converting to lowercase for consistent comparison.
-    final normalizedName = name.trim().toLowerCase();
-
-    final existing = await db.query(
-      'categories',
-      where: 'LOWER(TRIM(name)) = ? AND userId = ?',
-      whereArgs: [normalizedName, userId],
-    );
-
-    if (existing.isNotEmpty) {
-      return existing.first['id'] as int;
+  
+  Future<int> getOrCreateCategory(String name, String userId, {String type = 'expense'}) async {
+    final existingCategory = await getCategoryByName(name, userId, type);
+    if (existingCategory != null && existingCategory.id != null) {
+      return existingCategory.id!;
+    } else {
+      final newCategory = Category(name: name, type: type);
+      final newId = await addCategory(newCategory, userId);
+      if (newId == 0) {
+        final finalCategory = await getCategoryByName(name, userId, type);
+        return finalCategory?.id ?? 0;
+      }
+      return newId;
     }
-
-    // If the category does not exist, insert it with a capitalized display name.
-    final id = await db.insert('categories', {
-      'name': _capitalizeCategoryName(normalizedName),
-      'userId': userId,
-    });
-
-    return id;
   }
 
-  String _capitalizeCategoryName(String name) {
-    return name[0].toUpperCase() + name.substring(1);
-  }
-
+  // --- Bill Functions ---
   Future<int> addBill(Bill bill, String userId) async {
     final db = await database;
     final newId = await db.insert('bills', bill.toMap()..['userId'] = userId);
     try {
-      final docData = bill.toMap()
-        ..['id'] = newId
-        ..['userId'] = userId;
-      await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('bills')
-          .doc(newId.toString())
-          .set(docData);
+      final docData = bill.toMap()..['id'] = newId..['userId'] = userId;
+      await _firestore.collection('users').doc(userId).collection('bills').doc(newId.toString()).set(docData);
     } catch (e) {
       print('Firestore sync failed for addBill: $e');
     }
@@ -242,22 +225,15 @@ class DatabaseHelper {
 
   Future<List<Bill>> getBills(String userId) async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('bills',
-        where: 'userId = ?', whereArgs: [userId], orderBy: 'dueDate ASC');
+    final List<Map<String, dynamic>> maps = await db.query('bills', where: 'userId = ?', whereArgs: [userId], orderBy: 'dueDate ASC');
     return List.generate(maps.length, (i) => Bill.fromMap(maps[i]));
   }
-
+  
   Future<int> deleteBill(int id, String userId) async {
     final db = await database;
-    final result = await db.delete('bills',
-        where: 'id = ? AND userId = ?', whereArgs: [id, userId]);
+    final result = await db.delete('bills', where: 'id = ? AND userId = ?', whereArgs: [id, userId]);
     try {
-      await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('bills')
-          .doc(id.toString())
-          .delete();
+      await _firestore.collection('users').doc(userId).collection('bills').doc(id.toString()).delete();
     } catch (e) {
       print('Firestore sync failed for deleteBill: $e');
     }
@@ -266,15 +242,9 @@ class DatabaseHelper {
 
   Future<int> updateBill(Bill bill, String userId) async {
     final db = await database;
-    final result = await db.update('bills', bill.toMap(),
-        where: 'id = ? AND userId = ?', whereArgs: [bill.id, userId]);
+    final result = await db.update('bills', bill.toMap(), where: 'id = ? AND userId = ?', whereArgs: [bill.id, userId]);
     try {
-      await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('bills')
-          .doc(bill.id.toString())
-          .update(bill.toMap());
+      await _firestore.collection('users').doc(userId).collection('bills').doc(bill.id.toString()).update(bill.toMap());
     } catch (e) {
       print('Firestore sync failed for updateBill: $e');
     }
@@ -283,51 +253,29 @@ class DatabaseHelper {
 
   Future<void> restoreFromFirestore(String userId) async {
     final db = await database;
+    final batch = db.batch();
 
-    // Remove all local user data for the specified user before restoring from Firestore.
-    await db.delete('transactions', where: 'userId = ?', whereArgs: [userId]);
-    await db.delete('categories', where: 'userId = ?', whereArgs: [userId]);
-    await db.delete('bills', where: 'userId = ?', whereArgs: [userId]);
+    batch.delete('transactions', where: 'userId = ?', whereArgs: [userId]);
+    batch.delete('categories', where: 'userId = ?', whereArgs: [userId]);
+    batch.delete('bills', where: 'userId = ?', whereArgs: [userId]);
 
-    // Restore categories from Firestore, normalizing names for consistency.
-    final categorySnap = await _firestore
-        .collection('users')
-        .doc(userId)
-        .collection('categories')
-        .get();
-    for (final doc in categorySnap.docs) {
-      final data = doc.data();
-      final name = (data['name'] as String).trim();
-      // Use getOrCreateCategory to avoid duplicate or inconsistent category entries.
-      await getOrCreateCategory(name, userId);
-    }
-
-    // Restore bills from Firestore and insert them into the local database.
-    final billSnap = await _firestore
-        .collection('users')
-        .doc(userId)
-        .collection('bills')
-        .get();
-    for (final doc in billSnap.docs) {
-      await db.insert('bills', doc.data(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
-    }
-
-    // Restore transactions from Firestore and insert them into the local database.
-    final transactionSnap = await _firestore
-        .collection('users')
-        .doc(userId)
-        .collection('transactions')
-        .get();
+    final transactionSnap = await _firestore.collection('users').doc(userId).collection('transactions').get();
     for (final doc in transactionSnap.docs) {
-      try {
-        await db.insert('transactions', doc.data(),
-            conflictAlgorithm: ConflictAlgorithm.replace);
-      } catch (e) {
-        print('Skipped duplicate or invalid transaction: $e');
-      }
+      batch.insert('transactions', doc.data(), conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
+    final categorySnap = await _firestore.collection('users').doc(userId).collection('categories').get();
+    for (final doc in categorySnap.docs) {
+      batch.insert('categories', doc.data(), conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+
+    final billSnap = await _firestore.collection('users').doc(userId).collection('bills').get();
+    for (final doc in billSnap.docs) {
+      batch.insert('bills', doc.data(), conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+
+    await batch.commit(noResult: true);
     print('--- Successfully restored data from Firestore ---');
   }
 }
+

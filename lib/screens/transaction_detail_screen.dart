@@ -4,41 +4,50 @@ import 'package:intl/intl.dart';
 import '../helpers/database_helper.dart';
 import '../models/category.dart';
 import '../models/transaction.dart' as model;
-import 'manage_categories_screen.dart'; // Import for the new screen
+import 'manage_categories_screen.dart';
 
-class AddTransactionScreen extends StatefulWidget {
-  const AddTransactionScreen({super.key});
+class TransactionDetailScreen extends StatefulWidget {
+  final model.Transaction transaction;
+
+  const TransactionDetailScreen({super.key, required this.transaction});
 
   @override
-  State<AddTransactionScreen> createState() => _AddTransactionScreenState();
+  State<TransactionDetailScreen> createState() => _TransactionDetailScreenState();
 }
 
-class _AddTransactionScreenState extends State<AddTransactionScreen> {
+class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
   final _formKey = GlobalKey<FormState>();
-  String _transactionType = 'expense';
-  final _amountController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  DateTime _selectedDate = DateTime.now();
-
+  late String _transactionType;
+  late TextEditingController _amountController;
+  late TextEditingController _descriptionController;
+  late DateTime _selectedDate;
+  
   int? _selectedCategoryId;
   late Future<List<Category>> _categoriesFuture;
-
-  String _selectedTag = 'business';
+  
+  late String _selectedTag;
 
   final dbHelper = DatabaseHelper();
+  // THE FIX: Added the missing _currentUser variable
   final User? _currentUser = FirebaseAuth.instance.currentUser;
 
   @override
   void initState() {
     super.initState();
+    _transactionType = widget.transaction.type;
+    _amountController = TextEditingController(text: widget.transaction.amount.toString());
+    _descriptionController = TextEditingController(text: widget.transaction.description);
+    _selectedDate = DateTime.parse(widget.transaction.date);
+    _selectedCategoryId = widget.transaction.categoryId;
+    _selectedTag = widget.transaction.tag;
+    
     _loadCategories();
   }
 
   void _loadCategories() {
     if (_currentUser != null) {
       setState(() {
-        _categoriesFuture =
-            dbHelper.getCategories(_currentUser!.uid, type: _transactionType);
+        _categoriesFuture = dbHelper.getCategories(_currentUser!.uid, type: _transactionType);
       });
     }
   }
@@ -50,15 +59,15 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     super.dispose();
   }
 
-  Future<void> _saveTransaction() async {
+  Future<void> _updateTransaction() async {
     if (!_formKey.currentState!.validate() || _currentUser == null) {
       return;
     }
-
+    
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
 
-    final newTransaction = model.Transaction(
+    final updatedTransaction = widget.transaction.copyWith(
       type: _transactionType,
       amount: double.parse(_amountController.text),
       description: _descriptionController.text,
@@ -67,12 +76,34 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       tag: _selectedTag,
     );
 
-    await dbHelper.addTransaction(newTransaction, _currentUser!.uid);
+    await dbHelper.updateTransaction(updatedTransaction, _currentUser!.uid);
 
     messenger.showSnackBar(
-      const SnackBar(content: Text('Transaction Saved')),
+      const SnackBar(content: Text('Transaction Updated')),
     );
-    navigator.pop();
+    navigator.pop(true);
+  }
+
+  Future<void> _deleteTransaction() async {
+    if (_currentUser == null) return;
+
+    final bool? confirm = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Deletion'),
+        content: const Text('Are you sure you want to permanently delete this transaction?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      await dbHelper.deleteTransaction(widget.transaction.id!, _currentUser!.uid);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Transaction Deleted')));
+      Navigator.of(context).pop(true);
+    }
   }
 
   Future<void> _pickDate() async {
@@ -93,7 +124,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Transaction'),
+        title: const Text('Edit Transaction'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.red),
+            onPressed: _deleteTransaction,
+            tooltip: 'Delete Transaction',
+          ),
+        ],
       ),
       body: Form(
         key: _formKey,
@@ -102,14 +140,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           children: [
             SegmentedButton<String>(
               segments: const [
-                ButtonSegment(
-                    value: 'expense',
-                    label: Text('Expense'),
-                    icon: Icon(Icons.arrow_upward)),
-                ButtonSegment(
-                    value: 'income',
-                    label: Text('Income'),
-                    icon: Icon(Icons.arrow_downward)),
+                ButtonSegment(value: 'expense', label: Text('Expense'), icon: Icon(Icons.arrow_upward)),
+                ButtonSegment(value: 'income', label: Text('Income'), icon: Icon(Icons.arrow_downward)),
               ],
               selected: {_transactionType},
               onSelectionChanged: (Set<String> newSelection) {
@@ -121,16 +153,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               },
             ),
             const SizedBox(height: 16),
+            
             SegmentedButton<String>(
               segments: const [
-                ButtonSegment(
-                    value: 'business',
-                    label: Text('Business'),
-                    icon: Icon(Icons.business_center)),
-                ButtonSegment(
-                    value: 'personal',
-                    label: Text('Personal'),
-                    icon: Icon(Icons.person)),
+                ButtonSegment(value: 'business', label: Text('Business'), icon: Icon(Icons.business_center)),
+                ButtonSegment(value: 'personal', label: Text('Personal'), icon: Icon(Icons.person)),
               ],
               selected: {_selectedTag},
               onSelectionChanged: (Set<String> newSelection) {
@@ -140,26 +167,23 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               },
             ),
             const SizedBox(height: 20),
+
             TextFormField(
               controller: _amountController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
                 labelText: 'Amount',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.attach_money),
               ),
               validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter an amount';
-                }
-                if (double.tryParse(value) == null) {
-                  return 'Please enter a valid number';
-                }
+                if (value == null || value.isEmpty) return 'Please enter an amount';
+                if (double.tryParse(value) == null) return 'Please enter a valid number';
                 return null;
               },
             ),
             const SizedBox(height: 16),
+            
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -170,19 +194,15 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(child: CircularProgressIndicator());
                       }
-
+                      
                       final categories = snapshot.data ?? [];
-
+                      
                       return DropdownButtonFormField<int>(
                         value: _selectedCategoryId,
                         decoration: InputDecoration(
                           labelText: 'Category',
                           border: const OutlineInputBorder(),
-                          prefixIcon: Icon(
-                            _transactionType == 'expense'
-                                ? Icons.category
-                                : Icons.source,
-                          ),
+                          prefixIcon: Icon(_transactionType == 'expense' ? Icons.category : Icons.source),
                         ),
                         items: categories.map((category) {
                           return DropdownMenuItem<int>(
@@ -195,8 +215,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             _selectedCategoryId = newValue;
                           });
                         },
-                        validator: (value) =>
-                            value == null ? 'Please select a category' : null,
+                        validator: (value) => value == null ? 'Please select a category' : null,
                       );
                     },
                   ),
@@ -207,9 +226,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   tooltip: 'Manage Categories',
                   onPressed: () async {
                     await Navigator.of(context).push(
-                      MaterialPageRoute(
-                          builder: (context) =>
-                              const ManageCategoriesScreen()),
+                      MaterialPageRoute(builder: (context) => const ManageCategoriesScreen()),
                     );
                     _loadCategories();
                   },
@@ -217,6 +234,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               ],
             ),
             const SizedBox(height: 16),
+
             TextFormField(
               controller: _descriptionController,
               decoration: const InputDecoration(
@@ -226,6 +244,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               ),
             ),
             const SizedBox(height: 16),
+
             GestureDetector(
               onTap: _pickDate,
               child: AbsorbPointer(
@@ -242,16 +261,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               ),
             ),
             const SizedBox(height: 20),
+
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              onPressed: _saveTransaction,
-              child: const Text('Save Transaction',
-                  style: TextStyle(fontSize: 16)),
+              onPressed: _updateTransaction,
+              child: const Text('Update Transaction', style: TextStyle(fontSize: 16)),
             ),
           ],
         ),

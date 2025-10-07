@@ -1,6 +1,5 @@
-// lib/screens/profile_screen.dart
-
 import 'dart:convert';
+import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -27,8 +26,6 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final dbHelper = DatabaseHelper();
   final _auth = FirebaseAuth.instance;
-  late Future<List<Category>> _categoriesFuture;
-  final _categoryController = TextEditingController();
   final _nameController = TextEditingController();
 
   User? get currentUser => _auth.currentUser;
@@ -39,35 +36,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _selectedCurrency = 'KSh';
   bool _isPasscodeEnabled = false;
 
-  static const List<IconData> _selectableIcons = [
-    Icons.shopping_cart,
-    Icons.restaurant,
-    Icons.house,
-    Icons.flight,
-    Icons.receipt,
-    Icons.local_hospital,
-    Icons.school,
-    Icons.pets,
-    Icons.phone_android,
-    Icons.wifi,
-    Icons.movie,
-    Icons.spa,
-    Icons.build,
-    Icons.book,
-    Icons.music_note,
-    Icons.directions_car,
-  ];
-
   @override
   void initState() {
     super.initState();
-    _refreshCategoryList();
     _loadPreferences();
   }
 
   @override
   void dispose() {
-    _categoryController.dispose();
     _nameController.dispose();
     super.dispose();
   }
@@ -208,108 +184,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  IconData _getIconForCategory(Category category) {
-    if (category.iconCodePoint != null) {
-      return IconData(category.iconCodePoint!, fontFamily: 'MaterialIcons');
-    }
-    return Icons.label;
-  }
-
-  Color _getColorForCategory(Category category) {
-    return Theme.of(context).colorScheme.primaryContainer;
-  }
-
-  void _refreshCategoryList() {
-    if (currentUser == null) return;
-    setState(() {
-      _categoriesFuture = dbHelper.getCategories(currentUser!.uid);
-    });
-  }
-
-  void _showAddCategoryDialog() {
-    _categoryController.clear();
-    IconData? selectedIcon = Icons.label;
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            title: const Text('Add New Category'),
-            content: SingleChildScrollView(
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                TextField(
-                    controller: _categoryController,
-                    autofocus: true,
-                    decoration:
-                        const InputDecoration(hintText: 'Category Name')),
-                const SizedBox(height: 20),
-                ListTile(
-                  leading: Icon(selectedIcon),
-                  title: const Text('Select Icon'),
-                  onTap: () async {
-                    final IconData? newIcon = await showDialog<IconData>(
-                        context: context,
-                        builder: (context) => _buildIconPickerDialog());
-                    if (newIcon != null) {
-                      setDialogState(() => selectedIcon = newIcon);
-                    }
-                  },
-                ),
-              ]),
-            ),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel')),
-              TextButton(
-                onPressed: () async {
-                  if (_categoryController.text.isNotEmpty &&
-                      currentUser != null) {
-                    final newCategory = Category(
-                        name: _categoryController.text.trim(),
-                        iconCodePoint: selectedIcon?.codePoint);
-                    await dbHelper.addCategory(newCategory, currentUser!.uid);
-                    _categoryController.clear();
-                    Navigator.pop(context);
-                    _refreshCategoryList();
-                  }
-                },
-                child: const Text('Add'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildIconPickerDialog() {
-    return AlertDialog(
-      title: const Text('Select an Icon'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: GridView.builder(
-          shrinkWrap: true,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4, crossAxisSpacing: 16, mainAxisSpacing: 16),
-          itemCount: _selectableIcons.length,
-          itemBuilder: (context, index) {
-            final icon = _selectableIcons[index];
-            return InkWell(
-                onTap: () => Navigator.of(context).pop(icon),
-                borderRadius: BorderRadius.circular(50),
-                child: Icon(icon, size: 32));
-          },
-        ),
-      ),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'))
-      ],
-    );
-  }
-
   Future<void> _logout() async {
     final bool? confirm = await showDialog(
       context: context,
@@ -360,41 +234,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Getting Started',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text(
-                'Use the tabs at the bottom to navigate. Add transactions from the Dashboard, view charts in Reports, and manage your account in Settings.\n',
-              ),
-              Text(
-                'How do I add a transaction?',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text(
-                'Tap the "Add Transaction" button on the dashboard. Fill in the details and save.\n',
-              ),
-              Text(
-                'How does the M-Pesa sync work?',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text(
-                'The app automatically reads your M-Pesa SMS messages to create transactions for you. It only reads messages from "MPESA".\n',
-              ),
-              Text(
-                'How do I delete something?',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text(
-                'On the Dashboard, swipe a transaction from right to left. On the Settings page, tap the red trash can icon. All deletions will ask for confirmation.\n',
-              ),
-              Text(
-                'Is my data private?',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text(
-                'Yes. All your financial data is stored locally on your device and is linked only to your account. No one else can see your data.',
-              ),
+              Text('Getting Started', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('Use the tabs at the bottom to navigate...'),
             ],
           ),
         ),
@@ -437,7 +278,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             msg:
                 "Data restored successfully! Please restart the app to see all changes.",
             toastLength: Toast.LENGTH_LONG);
-        _refreshCategoryList();
       } catch (e) {
         Fluttertoast.showToast(
             msg: "Error restoring data: $e",
@@ -459,7 +299,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           padding: EdgeInsets.zero,
           children: [
             if (currentUser != null)
-              // UPDATED: Replaced UserAccountsDrawerHeader with a custom widget
               Container(
                 width: double.infinity,
                 color: Theme.of(context).colorScheme.primaryContainer,
@@ -669,87 +508,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onTap: _launchWhatsApp,
             ),
             const Divider(),
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text('Manage Expense Categories',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ),
-            FutureBuilder<List<Category>>(
-              future: _categoriesFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const ListTile(
-                      title: Text('No categories yet. Add one!'));
-                }
-                final categories = snapshot.data!;
-                return ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: categories.length,
-                  itemBuilder: (context, index) {
-                    final category = categories[index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 4),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: _getColorForCategory(category),
-                          child: Icon(_getIconForCategory(category),
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onPrimaryContainer),
-                        ),
-                        title: Text(category.name),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () async {
-                            if (currentUser == null) return;
-                            final bool? confirm = await showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Confirm Deletion'),
-                                content: Text(
-                                    'Are you sure you want to delete the "${category.name}" category?'),
-                                actions: [
-                                  TextButton(
-                                      onPressed: () =>
-                                          Navigator.of(context).pop(false),
-                                      child: const Text('Cancel')),
-                                  TextButton(
-                                      onPressed: () =>
-                                          Navigator.of(context).pop(true),
-                                      child: const Text('Delete',
-                                          style: TextStyle(color: Colors.red))),
-                                ],
-                              ),
-                            );
-                            if (confirm == true) {
-                              await dbHelper.deleteCategory(
-                                  category.id!, currentUser!.uid);
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text('Category Deleted')));
-                              }
-                              _refreshCategoryList();
-                            }
-                          },
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.add),
-              title: const Text('Add New Category'),
-              onTap: _showAddCategoryDialog,
-            ),
-            const Divider(),
             Padding(
               padding:
                   const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
@@ -783,3 +541,4 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
+

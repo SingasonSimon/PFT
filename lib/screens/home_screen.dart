@@ -1,5 +1,3 @@
-// lib/screens/home_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
@@ -12,6 +10,7 @@ import '../models/transaction.dart' as model;
 import 'add_transaction_screen.dart';
 import 'all_transactions_screen.dart';
 import 'add_bill_screen.dart';
+import 'transaction_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -43,7 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await _requestSmsPermission();
     if (!mounted) return;
     if (_currentUser != null) {
-      _smsService.syncMpesaMessages(_currentUser.uid).then((_) {
+      _smsService.syncMpesaMessages(_currentUser!.uid).then((_) {
         if (mounted) {
           _refreshData();
         }
@@ -81,8 +80,8 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       await Future.wait([
         _loadCurrencyPreference(),
-        _loadBills(_currentUser.uid),
-        _loadTransactions(_currentUser.uid),
+        _loadBills(_currentUser!.uid),
+        _loadTransactions(_currentUser!.uid),
       ]);
     } catch (e) {
       print("Error refreshing data: $e");
@@ -253,7 +252,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           Icon(Icons.info_outline, size: 14, color: Colors.grey.shade600),
                                           const SizedBox(width: 4),
                                           Text(
-                                            'Swipe left on an item to delete',
+                                            'Swipe left to delete, or right to edit',
                                             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                                           ),
                                         ],
@@ -289,7 +288,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
+  // RESTORED: Full implementation of _buildUpcomingBillsSection
   Widget _buildUpcomingBillsSection(User? currentUser) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -366,7 +365,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     if (currentUser == null) return;
                                     
                                     final billTransaction = model.Transaction(
-                                      type: 'expense', amount: bill.amount, description: 'Paid bill: ${bill.name}', date: DateTime.now().toIso8601String(), categoryId: await dbHelper.getOrCreateCategory('Bills', currentUser.uid),
+                                      type: 'expense', amount: bill.amount, description: 'Paid bill: ${bill.name}', date: DateTime.now().toIso8601String(), categoryId: await dbHelper.getOrCreateCategory(name: 'Bills', userId: currentUser.uid),
                                     );
                                     await dbHelper.addTransaction(billTransaction, currentUser.uid);
 
@@ -398,10 +397,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildTransactionList(User? currentUser) {
     if (_transactions.isEmpty) {
-      return const Center(
-        heightFactor: 5,
-        child: Text('No transactions yet. Add one!'),
-      );
+      return const Center(heightFactor: 5, child: Text('No transactions yet. Add one!'));
     }
     
     final currencyFormatter = NumberFormat.currency(locale: 'en_US', symbol: '');
@@ -421,30 +417,53 @@ class _HomeScreenState extends State<HomeScreen> {
 
         return Dismissible(
           key: ValueKey(transaction.id),
-          direction: DismissDirection.endToStart,
+          
           confirmDismiss: (direction) async {
-             return await showDialog(
-              context: context,
-              builder: (BuildContext context) {
-                return AlertDialog(
-                  title: const Text('Confirm Deletion'), content: const Text('Are you sure you want to delete this transaction?'),
-                  actions: <Widget>[
-                    TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
-                    TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
-                  ],
-                );
-              },
-            );
+            if (direction == DismissDirection.endToStart) {
+              return await showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    title: const Text('Confirm Deletion'), content: const Text('Are you sure you want to delete this transaction?'),
+                    actions: <Widget>[
+                      TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+                      TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+                    ],
+                  );
+                },
+              );
+            } else if (direction == DismissDirection.startToEnd) {
+              final result = await Navigator.of(context).push<bool>(
+                MaterialPageRoute(builder: (context) => TransactionDetailScreen(transaction: transaction)),
+              );
+              if (result == true) {
+                _refreshData();
+              }
+              return false;
+            }
+            return false;
           },
+
           onDismissed: (direction) {
-            if (currentUser != null) {
+            if (direction == DismissDirection.endToStart && currentUser != null) {
               _deleteTransaction(transaction.id!, currentUser.uid);
             }
           },
+
           background: Container(
-            color: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 20), alignment: Alignment.centerRight,
+            color: Colors.red,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            alignment: Alignment.centerRight,
             child: const Icon(Icons.delete, color: Colors.white),
           ),
+          
+          secondaryBackground: Container(
+            color: Colors.blue,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            alignment: Alignment.centerLeft,
+            child: const Icon(Icons.edit, color: Colors.white),
+          ),
+          
           child: Card(
             margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
             child: ListTile(
@@ -452,9 +471,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ? Image.asset('assets/mpesa_logo.png', width: 40, height: 40)
                 : Icon(isIncome ? Icons.arrow_downward : Icons.arrow_upward, color: amountColor),
               title: Text(
-                transaction.description.isNotEmpty
-                  ? transaction.description
-                  : transaction.type.capitalize(),
+                transaction.description.isNotEmpty ? transaction.description : transaction.type.capitalize(),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -484,6 +501,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+// RESTORED: Full implementation of SummaryCard
 class SummaryCard extends StatelessWidget {
   final String title;
   final double amount;
@@ -527,3 +545,4 @@ extension StringExtension on String {
     return "${this[0].toUpperCase()}${substring(1).toLowerCase()}";
   }
 }
+
