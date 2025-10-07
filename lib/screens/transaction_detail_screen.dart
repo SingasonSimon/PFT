@@ -28,7 +28,6 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
   late String _selectedTag;
 
   final dbHelper = DatabaseHelper();
-  // THE FIX: Added the missing _currentUser variable
   final User? _currentUser = FirebaseAuth.instance.currentUser;
 
   @override
@@ -196,9 +195,15 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                       }
                       
                       final categories = snapshot.data ?? [];
+
+                      // THE FIX: This logic now prevents the flicker/crash.
+                      // We check if the current value is valid for the list of items.
+                      final bool isValueValid = _selectedCategoryId != null && categories.any((c) => c.id == _selectedCategoryId);
+                      // If the value isn't valid, we use null, otherwise we use the value.
+                      final int? dropdownValue = isValueValid ? _selectedCategoryId : null;
                       
                       return DropdownButtonFormField<int>(
-                        value: _selectedCategoryId,
+                        value: dropdownValue,
                         decoration: InputDecoration(
                           labelText: 'Category',
                           border: const OutlineInputBorder(),

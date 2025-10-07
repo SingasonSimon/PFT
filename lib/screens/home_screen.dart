@@ -363,7 +363,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                   onPressed: () async {
                                     if (currentUser == null) return;
                                     
-                                    // THE FIX: Correctly call getOrCreateCategory with positional arguments
                                     final billTransaction = model.Transaction(
                                       type: 'expense', 
                                       amount: bill.amount, 
@@ -423,7 +422,15 @@ class _HomeScreenState extends State<HomeScreen> {
           key: ValueKey(transaction.id),
           
           confirmDismiss: (direction) async {
-            if (direction == DismissDirection.endToStart) {
+            if (direction == DismissDirection.startToEnd) { // Swipe right for edit
+              final result = await Navigator.of(context).push<bool>(
+                MaterialPageRoute(builder: (context) => TransactionDetailScreen(transaction: transaction)),
+              );
+              if (result == true) {
+                _refreshData();
+              }
+              return false; // Do not dismiss the item after swiping right
+            } else { // Swipe left for delete
               return await showDialog(
                 context: context,
                 builder: (BuildContext context) {
@@ -436,16 +443,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 },
               );
-            } else if (direction == DismissDirection.startToEnd) {
-              final result = await Navigator.of(context).push<bool>(
-                MaterialPageRoute(builder: (context) => TransactionDetailScreen(transaction: transaction)),
-              );
-              if (result == true) {
-                _refreshData();
-              }
-              return false;
             }
-            return false;
           },
 
           onDismissed: (direction) {
@@ -453,19 +451,21 @@ class _HomeScreenState extends State<HomeScreen> {
               _deleteTransaction(transaction.id!, currentUser.uid);
             }
           },
-
-          background: Container(
-            color: Colors.red,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            alignment: Alignment.centerRight,
-            child: const Icon(Icons.delete, color: Colors.white),
-          ),
           
-          secondaryBackground: Container(
+          // CORRECTED: The background (for swipe right-to-left) is now the blue edit
+          background: Container(
             color: Colors.blue,
             padding: const EdgeInsets.symmetric(horizontal: 20),
             alignment: Alignment.centerLeft,
             child: const Icon(Icons.edit, color: Colors.white),
+          ),
+          
+          // CORRECTED: The secondaryBackground (for swipe left-to-right) is now the red delete
+          secondaryBackground: Container(
+            color: Colors.red,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            alignment: Alignment.centerRight,
+            child: const Icon(Icons.delete, color: Colors.white),
           ),
           
           child: Card(
