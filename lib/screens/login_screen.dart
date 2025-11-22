@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../helpers/dialog_helper.dart';
+import '../main.dart'; // Import MainScreen
 import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -35,12 +36,30 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text.trim(),
       );
       
-      // Login successful - AuthGate will handle navigation
-      // Reset loading state
-      if (mounted) {
+      // Login successful - wait for auth state to propagate
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      // Verify user is authenticated
+      if (_auth.currentUser != null && mounted) {
+        // Reset loading state
         setState(() {
           _isLoading = false;
         });
+        
+        // Navigate directly to MainScreen, replacing the entire stack
+        // This ensures we don't go back to WelcomeScreen
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const MainScreen()),
+          (route) => false, // Remove all previous routes
+        );
+      } else {
+        // Something went wrong
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          SnackbarHelper.showError(context, 'Login failed. Please try again.');
+        }
       }
     } on FirebaseAuthException catch (e) {
       String errorMessage = 'Login failed';
