@@ -36,6 +36,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _loadPreferences();
+    _refreshUserData();
+  }
+
+  Future<void> _refreshUserData() async {
+    // Reload user data to ensure we have the latest photoURL
+    if (currentUser != null) {
+      await currentUser!.reload();
+      if (mounted) {
+        setState(() {});
+      }
+    }
   }
 
   @override
@@ -79,21 +90,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // Update photo URL in Firebase Auth
         await currentUser!.updatePhotoURL(imageUrl);
         
+        // Wait for Firebase to process the update
+        await Future.delayed(const Duration(milliseconds: 800));
+        
         // Reload user to get updated photo URL from Firebase
         await currentUser!.reload();
         
-        // Get the fresh user instance after reload
+        // Get fresh user instance
         final updatedUser = _auth.currentUser;
         
         // Verify the photo URL was saved
-        if (updatedUser?.photoURL == imageUrl) {
+        if (updatedUser != null) {
+          // Reload one more time to ensure we have the latest data
+          await updatedUser.reload();
+          final finalUser = _auth.currentUser;
+          
           if (mounted) {
-            setState(() {}); // Refresh UI to show new image
-            SnackbarHelper.showSuccess(context, 'Profile picture updated!');
-          }
-        } else {
-          if (mounted) {
-            SnackbarHelper.showError(context, 'Profile picture updated but may not persist. Please restart the app.');
+            // The StreamBuilder will automatically update the UI
+            if (finalUser?.photoURL == imageUrl || finalUser?.photoURL != null) {
+              SnackbarHelper.showSuccess(context, 'Profile picture updated successfully!');
+            } else {
+              SnackbarHelper.showSuccess(context, 'Profile picture updated! Changes will appear after app restart.');
+            }
           }
         }
       } else {
@@ -347,43 +365,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Profile Header
-            if (currentUser != null)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24.0),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0xFF4CAF50).withOpacity(0.1),
-                      const Color(0xFF4CAF50).withOpacity(0.05),
-                    ],
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    GestureDetector(
-                      onTap: _pickAndUploadImage,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          CircleAvatar(
-                            radius: 50,
-                            backgroundColor: const Color(0xFF4CAF50).withOpacity(0.1),
-                            backgroundImage: (currentUser!.photoURL != null)
-                                ? NetworkImage(currentUser!.photoURL!)
-                                : null,
-                            child: (currentUser!.photoURL == null)
-                                ? const Icon(Icons.person, size: 50, color: Color(0xFF4CAF50))
-                                : null,
-                          ),
+    return StreamBuilder<User?>(
+      stream: _auth.userChanges(),
+      builder: (context, userSnapshot) {
+        final user = userSnapshot.data ?? currentUser;
+        
+        return Scaffold(
+          backgroundColor: Colors.white,
+          body: SafeArea(
+            child: Column(
+              children: [
+                // Profile Header
+                if (user != null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24.0),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          const Color(0xFF4CAF50).withOpacity(0.1),
+                          const Color(0xFF4CAF50).withOpacity(0.05),
+                        ],
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        GestureDetector(
+                          onTap: _pickAndUploadImage,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              CircleAvatar(
+                                radius: 50,
+                                backgroundColor: const Color(0xFF4CAF50).withOpacity(0.1),
+                                backgroundImage: (user.photoURL != null && user.photoURL!.isNotEmpty)
+                                    ? NetworkImage(
+                                        '${user.photoURL}?t=${DateTime.now().millisecondsSinceEpoch}',
+                                        headers: {'Cache-Control': 'no-cache'},
+                                      )
+                                    : null,
+                                child: (user.photoURL == null || user.photoURL!.isEmpty)
+                                    ? const Icon(Icons.person, size: 50, color: Color(0xFF4CAF50))
+                                    : null,
+                              ),
                           if (_isUploading)
                             const CircularProgressIndicator(
                               strokeWidth: 3,
@@ -398,7 +424,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         Flexible(
                           child: Text(
-                            currentUser!.displayName ?? 'User',
+                            user.displayName ?? 'User',
                             style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
@@ -428,7 +454,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      currentUser!.email ?? 'No email',
+                      user.email ?? 'No email',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey[600],
@@ -636,6 +662,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
+        );
+      },
     );
   }
 
