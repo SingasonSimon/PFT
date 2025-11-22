@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "142893563437",
-    "project_id": "ledgerlite-app",
-    "storage_bucket": "ledgerlite-app.firebasestorage.app"
+    "project_number": "376182475816",
+    "project_id": "pft-app-aac78",
+    "storage_bucket": "pft-app-aac78.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:142893563437:android:e66ffed3510e91cc1cc2a4",
+        "mobilesdk_app_id": "1:376182475816:android:b6d7d3611b6cbf3cf5b91d",
         "android_client_info": {
-          "package_name": "com.example.ledgerlite"
+          "package_name": "com.pft.app"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBP2ZFBwBAJtv41-ifTZ34icb5G9jJrXws"
+          "current_key": "AIzaSyC6ThfuH33A5hgJlVRNSLpPcX_fusR7Wc0"
         }
       ],
       "services": {

@@ -1,11 +1,11 @@
 {
-    "name": "ledgerlite",
-    "short_name": "ledgerlite",
+    "name": "Personal Finance Tracker",
+    "short_name": "Finance Tracker",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#4F46E5",
+    "theme_color": "#4F46E5",
+    "description": "Personal Finance Tracker - Track your income, expenses, and bills.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

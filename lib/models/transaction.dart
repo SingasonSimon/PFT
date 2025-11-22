@@ -7,8 +7,6 @@ class Transaction {
   final String description;
   final String date;
   final int? categoryId;
-  // Indicates whether the transaction is tagged as 'business' or 'personal'.
-  final String tag;
 
   Transaction({
     this.id,
@@ -17,8 +15,6 @@ class Transaction {
     required this.description,
     required this.date,
     this.categoryId,
-    // Defaults to 'business' if not specified.
-    this.tag = 'business',
   });
 
   // Creates a copy of this transaction with optional new values for each property.
@@ -29,7 +25,6 @@ class Transaction {
     String? description,
     String? date,
     int? categoryId,
-    String? tag,
   }) {
     return Transaction(
       id: id ?? this.id,
@@ -38,7 +33,6 @@ class Transaction {
       description: description ?? this.description,
       date: date ?? this.date,
       categoryId: categoryId ?? this.categoryId,
-      tag: tag ?? this.tag,
     );
   }
 
@@ -50,8 +44,6 @@ class Transaction {
       'description': description,
       'date': date,
       'category_id': categoryId,
-      // Include the tag property in the map for database storage.
-      'tag': tag,
     };
   }
 
@@ -63,8 +55,6 @@ class Transaction {
       description: map['description'],
       date: map['date'],
       categoryId: map['category_id'],
-      // Retrieve the tag from the map, defaulting to 'business' for legacy data.
-      tag: map['tag'] ?? 'business',
     );
   }
 }

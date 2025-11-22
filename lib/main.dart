@@ -1,14 +1,13 @@
 // lib/main.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'auth_gate.dart';
 import 'firebase_options.dart';
 import 'helpers/notification_service.dart';
-import 'theme_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/reports_screen.dart';
 import 'screens/profile_screen.dart';
@@ -17,49 +16,62 @@ final NotificationService notificationService = NotificationService();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  
+  try {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  } catch (e) {
+    debugPrint('Firebase initialization error: $e');
+    // If Firebase fails to initialize, we'll still run the app but auth won't work
+    // This allows the app to start and show a proper error message
+  }
 
   tz.initializeTimeZones();
 
-  await notificationService.init();
+  try {
+    await notificationService.init();
+  } catch (e) {
+    debugPrint('Notification service initialization error: $e');
+  }
 
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => ThemeProvider(),
-      child: const PatoTrack(),
-    ),
+    const PersonalFinanceTracker(),
   );
 }
 
-class PatoTrack extends StatelessWidget {
-  const PatoTrack({super.key});
+class PersonalFinanceTracker extends StatelessWidget {
+  const PersonalFinanceTracker({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
+    // Set status bar style globally
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+      ),
+    );
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'PatoTrack', // Updated app title
-      themeMode: themeProvider.themeMode,
+      title: 'Personal Finance Tracker',
+      themeMode: ThemeMode.light,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF4CAF50), // Green color
+          brightness: Brightness.light,
+        ),
+        primaryColor: const Color(0xFF4CAF50),
+        scaffoldBackgroundColor: Colors.white,
         textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme),
         useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.teal,
-          brightness: Brightness.dark,
-        ),
-        textTheme: GoogleFonts.interTextTheme(
-          Theme.of(context).textTheme.apply(
-            bodyColor: Colors.white,
-            displayColor: Colors.white,
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF4CAF50),
+            foregroundColor: Colors.white,
+            elevation: 0,
           ),
         ),
-        useMaterial3: true,
       ),
       home: const AuthGate(),
     );
@@ -107,19 +119,19 @@ class _MainScreenState extends State<MainScreen> {
 
         destinations: const <NavigationDestination>[
           NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard), // Filled icon for selected state
-            label: 'Dashboard',
+            icon: Icon(Icons.account_balance_wallet_outlined),
+            selectedIcon: Icon(Icons.account_balance_wallet),
+            label: 'Home',
           ),
           NavigationDestination(
-            icon: Icon(Icons.pie_chart_outline),
-            selectedIcon: Icon(Icons.pie_chart),
+            icon: Icon(Icons.analytics_outlined),
+            selectedIcon: Icon(Icons.analytics),
             label: 'Reports',
           ),
           NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Profile',
           ),
         ],
       ),

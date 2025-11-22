@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart' hide Transaction;
 import 'package:path/path.dart';
 import '../models/bill.dart';
@@ -20,10 +21,10 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDB() async {
-    String path = join(await getDatabasesPath(), 'PatoTrack.db');
+    String path = join(await getDatabasesPath(), 'PersonalFinanceTracker.db');
     return await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -49,8 +50,7 @@ class DatabaseHelper {
         description TEXT,
         date TEXT NOT NULL,
         category_id INTEGER,
-        userId TEXT NOT NULL,
-        tag TEXT NOT NULL DEFAULT 'business'
+        userId TEXT NOT NULL
       )
     ''');
     await db.execute('''
@@ -90,17 +90,54 @@ class DatabaseHelper {
     if (oldVersion < 7) {
       await db.execute("ALTER TABLE categories ADD COLUMN type TEXT NOT NULL DEFAULT 'expense'");
     }
+    if (oldVersion < 8) {
+      // Migrate: Convert all 'business' tags to 'personal' (for data consistency)
+      await db.execute("UPDATE transactions SET tag = 'personal' WHERE tag = 'business'");
+      
+      // Remove tag column by recreating the table
+      await db.execute('''
+        CREATE TABLE transactions_new(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          type TEXT NOT NULL,
+          amount REAL NOT NULL,
+          description TEXT,
+          date TEXT NOT NULL,
+          category_id INTEGER,
+          userId TEXT NOT NULL
+        )
+      ''');
+      
+      // Copy data from old table to new table (excluding tag column)
+      await db.execute('''
+        INSERT INTO transactions_new (id, type, amount, description, date, category_id, userId)
+        SELECT id, type, amount, description, date, category_id, userId
+        FROM transactions
+      ''');
+      
+      // Drop old table and rename new one
+      await db.execute('DROP TABLE transactions');
+      await db.execute('ALTER TABLE transactions_new RENAME TO transactions');
+    }
   }
 
   // --- Transaction Functions ---
   Future<int> addTransaction(model.Transaction transaction, String userId) async {
     final db = await database;
     final newId = await db.insert('transactions', transaction.toMap()..['userId'] = userId);
+    // Firestore sync - don't block on this, use timeout to prevent hanging
     try {
       final docData = transaction.toMap()..['id'] = newId..['userId'] = userId;
-      await _firestore.collection('users').doc(userId).collection('transactions').doc(newId.toString()).set(docData);
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('transactions')
+          .doc(newId.toString())
+          .set(docData)
+          .timeout(const Duration(seconds: 3), onTimeout: () {
+        debugPrint('Firestore sync timeout for addTransaction');
+      });
     } catch (e) {
-      print('Firestore sync failed for addTransaction: $e');
+      debugPrint('Firestore sync failed for addTransaction: $e');
     }
     return newId;
   }
@@ -121,9 +158,17 @@ class DatabaseHelper {
       whereArgs: [transaction.id, userId],
     );
     try {
-      await _firestore.collection('users').doc(userId).collection('transactions').doc(transaction.id.toString()).update(transaction.toMap());
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('transactions')
+          .doc(transaction.id.toString())
+          .update(transaction.toMap())
+          .timeout(const Duration(seconds: 3), onTimeout: () {
+        debugPrint('Firestore sync timeout for updateTransaction');
+      });
     } catch (e) {
-      print('Firestore sync failed for updateTransaction: $e');
+      debugPrint('Firestore sync failed for updateTransaction: $e');
     }
     return result;
   }
@@ -132,9 +177,17 @@ class DatabaseHelper {
     final db = await database;
     final result = await db.delete('transactions', where: 'id = ? AND userId = ?', whereArgs: [id, userId]);
     try {
-      await _firestore.collection('users').doc(userId).collection('transactions').doc(id.toString()).delete();
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('transactions')
+          .doc(id.toString())
+          .delete()
+          .timeout(const Duration(seconds: 3), onTimeout: () {
+        debugPrint('Firestore sync timeout for deleteTransaction');
+      });
     } catch (e) {
-      print('Firestore sync failed for deleteTransaction: $e');
+      debugPrint('Firestore sync failed for deleteTransaction: $e');
     }
     return result;
   }
@@ -142,16 +195,35 @@ class DatabaseHelper {
   // --- Category Functions ---
   Future<int> addCategory(Category category, String userId) async {
     final db = await database;
-    final map = category.toMap()..['userId'] = userId;
-    final newId = await db.insert('categories', map, conflictAlgorithm: ConflictAlgorithm.ignore);
-    if (newId != 0) {
-        try {
-        final docData = category.toMap()..['id'] = newId..['userId'] = userId;
-        await _firestore.collection('users').doc(userId).collection('categories').doc(newId.toString()).set(docData);
-      } catch(e) {
-        print('Firestore sync failed for addCategory: $e');
-      }
+    
+    // Check if category with same name and type already exists
+    final existing = await getCategoryByName(category.name, userId, category.type);
+    if (existing != null) {
+      throw Exception('A category with the name "${category.name}" already exists for ${category.type} transactions.');
     }
+    
+    final map = category.toMap()..['userId'] = userId;
+    final newId = await db.insert('categories', map);
+    
+    if (newId > 0) {
+      try {
+        final docData = category.toMap()..['id'] = newId..['userId'] = userId;
+        await _firestore
+            .collection('users')
+            .doc(userId)
+            .collection('categories')
+            .doc(newId.toString())
+            .set(docData)
+            .timeout(const Duration(seconds: 3), onTimeout: () {
+          debugPrint('Firestore sync timeout for addCategory');
+        });
+      } catch(e) {
+        debugPrint('Firestore sync failed for addCategory: $e');
+      }
+    } else {
+      throw Exception('Failed to add category - database returned ID: $newId');
+    }
+    
     return newId;
   }
 
@@ -159,9 +231,17 @@ class DatabaseHelper {
     final db = await database;
     final result = await db.update('categories', category.toMap(), where: 'id = ? AND userId = ?', whereArgs: [category.id, userId]);
     try {
-      await _firestore.collection('users').doc(userId).collection('categories').doc(category.id.toString()).update(category.toMap());
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('categories')
+          .doc(category.id.toString())
+          .update(category.toMap())
+          .timeout(const Duration(seconds: 3), onTimeout: () {
+        debugPrint('Firestore sync timeout for updateCategory');
+      });
     } catch (e) {
-      print('Firestore sync failed for updateCategory: $e');
+      debugPrint('Firestore sync failed for updateCategory: $e');
     }
     return result;
   }
@@ -181,9 +261,17 @@ class DatabaseHelper {
     final db = await database;
     final result = await db.delete('categories', where: 'id = ? AND userId = ?', whereArgs: [id, userId]);
     try {
-      await _firestore.collection('users').doc(userId).collection('categories').doc(id.toString()).delete();
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('categories')
+          .doc(id.toString())
+          .delete()
+          .timeout(const Duration(seconds: 3), onTimeout: () {
+        debugPrint('Firestore sync timeout for deleteCategory');
+      });
     } catch (e) {
-      print('Firestore sync failed for deleteCategory: $e');
+      debugPrint('Firestore sync failed for deleteCategory: $e');
     }
     return result;
   }
@@ -216,9 +304,17 @@ class DatabaseHelper {
     final newId = await db.insert('bills', bill.toMap()..['userId'] = userId);
     try {
       final docData = bill.toMap()..['id'] = newId..['userId'] = userId;
-      await _firestore.collection('users').doc(userId).collection('bills').doc(newId.toString()).set(docData);
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('bills')
+          .doc(newId.toString())
+          .set(docData)
+          .timeout(const Duration(seconds: 3), onTimeout: () {
+        debugPrint('Firestore sync timeout for addBill');
+      });
     } catch (e) {
-      print('Firestore sync failed for addBill: $e');
+      debugPrint('Firestore sync failed for addBill: $e');
     }
     return newId;
   }
@@ -235,7 +331,7 @@ class DatabaseHelper {
     try {
       await _firestore.collection('users').doc(userId).collection('bills').doc(id.toString()).delete();
     } catch (e) {
-      print('Firestore sync failed for deleteBill: $e');
+      debugPrint('Firestore sync failed for deleteBill: $e');
     }
     return result;
   }
@@ -246,7 +342,7 @@ class DatabaseHelper {
     try {
       await _firestore.collection('users').doc(userId).collection('bills').doc(bill.id.toString()).update(bill.toMap());
     } catch (e) {
-      print('Firestore sync failed for updateBill: $e');
+      debugPrint('Firestore sync failed for updateBill: $e');
     }
     return result;
   }
@@ -275,7 +371,7 @@ class DatabaseHelper {
     }
 
     await batch.commit(noResult: true);
-    print('--- Successfully restored data from Firestore ---');
+    debugPrint('--- Successfully restored data from Firestore ---');
   }
 }
 

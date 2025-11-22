@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../helpers/database_helper.dart';
-import '../helpers/sms_service.dart';
+import '../helpers/dialog_helper.dart';
 import '../models/bill.dart';
 import '../models/transaction.dart' as model;
 import 'add_transaction_screen.dart';
@@ -21,10 +20,10 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final dbHelper = DatabaseHelper();
-  final SmsService _smsService = SmsService();
   List<model.Transaction> _transactions = [];
   List<Bill> _bills = [];
   bool _isLoading = true;
+  Set<int> _payingBills = {}; // Track which bills are being paid
   double _totalIncome = 0.0;
   double _totalExpenses = 0.0;
   double _balance = 0.0;
@@ -39,26 +38,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _initHome() async {
-    await _requestSmsPermission();
     if (!mounted) return;
     if (_currentUser != null) {
-      _smsService.syncMpesaMessages(_currentUser!.uid).then((_) {
-        if (mounted) {
-          _refreshData();
-        }
-      });
       _refreshData();
     } else {
       if (mounted) {
         setState(() => _isLoading = false);
       }
-    }
-  }
-
-  Future<void> _requestSmsPermission() async {
-    var status = await Permission.sms.status;
-    if (!status.isGranted) {
-      await Permission.sms.request();
     }
   }
   
@@ -84,7 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _loadTransactions(_currentUser!.uid),
       ]);
     } catch (e) {
-      print("Error refreshing data: $e");
+      debugPrint("Error refreshing data: $e");
     } finally {
       if (mounted) {
         setState(() {
@@ -214,12 +200,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             padding: EdgeInsets.zero,
                             children: [
                               Padding(
-                                padding: const EdgeInsets.all(8.0),
+                                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                                 child: Column(
                                   children: [
-                                    SummaryCard(title: 'Total Income', amount: _totalIncome, icon: Icons.trending_up, color: Colors.green, currencySymbol: _currencySymbol),
+                                    SummaryCard(title: 'Total Income', amount: _totalIncome, icon: Icons.trending_up, color: const Color(0xFF4CAF50), currencySymbol: _currencySymbol),
+                                    const SizedBox(height: 12),
                                     SummaryCard(title: 'Total Expenses', amount: _totalExpenses, icon: Icons.trending_down, color: Colors.red, currencySymbol: _currencySymbol),
-                                    SummaryCard(title: 'Balance', amount: _balance, icon: Icons.account_balance, color: _balance >= 0 ? Colors.blue : Colors.orange, currencySymbol: _currencySymbol),
+                                    const SizedBox(height: 12),
+                                    SummaryCard(title: 'Balance', amount: _balance, icon: Icons.account_balance, color: _balance >= 0 ? const Color(0xFF4CAF50) : Colors.orange, currencySymbol: _currencySymbol),
                                   ],
                                 ),
                               ),
@@ -279,6 +267,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 _refreshData();
               }
             },
+            backgroundColor: const Color(0xFF4CAF50),
+            foregroundColor: Colors.white,
             label: const Text('Add Transaction'),
             icon: const Icon(Icons.add),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -328,12 +318,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     return SizedBox(
                       width: 170,
                       child: Card(
+                        elevation: 2,
                         shape: RoundedRectangleBorder(
-                          side: BorderSide(color: status.color.withOpacity(0.5), width: 1),
-                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: status.color.withOpacity(0.3), width: 1.5),
+                          borderRadius: BorderRadius.circular(16),
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.all(12.0),
+                          padding: const EdgeInsets.all(16.0),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -345,11 +336,22 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ],
                               ),
                               const Spacer(),
-                              Text(bill.name, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
-                              Text('$_currencySymbol${bill.amount.toStringAsFixed(0)}'),
+                              Text(
+                                bill.name,
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                              Text(
+                                '$_currencySymbol${bill.amount.toStringAsFixed(0)}',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
                               Text(
                                 status.text,
                                 style: TextStyle(color: status.color, fontSize: 12, fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
                               ),
                               const Spacer(),
                               Align(
@@ -359,31 +361,70 @@ class _HomeScreenState extends State<HomeScreen> {
                                     padding: EdgeInsets.zero,
                                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                   ),
-                                  child: const Text('Pay Bill'),
-                                  onPressed: () async {
-                                    if (currentUser == null) return;
-                                    
-                                    final billTransaction = model.Transaction(
-                                      type: 'expense', 
-                                      amount: bill.amount, 
-                                      description: 'Paid bill: ${bill.name}', 
-                                      date: DateTime.now().toIso8601String(), 
-                                      categoryId: await dbHelper.getOrCreateCategory('Bills', currentUser.uid, type: 'expense'),
-                                    );
-                                    await dbHelper.addTransaction(billTransaction, currentUser.uid);
+                                  child: _payingBills.contains(bill.id)
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Color(0xFF4CAF50),
+                                          ),
+                                        )
+                                      : const Text('Pay Bill'),
+                                  onPressed: _payingBills.contains(bill.id)
+                                      ? null
+                                      : () async {
+                                          if (currentUser == null || bill.id == null) return;
 
-                                    if (bill.isRecurring) {
-                                      final nextDueDate = _calculateNextDueDate(bill);
-                                      final updatedBill = bill.copyWith(dueDate: nextDueDate);
-                                      await dbHelper.updateBill(updatedBill, currentUser.uid);
-                                      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Recurring bill "${bill.name}" paid. Next due date set.')));
-                                    } else {
-                                      await dbHelper.deleteBill(bill.id!, currentUser.uid);
-                                      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Bill "${bill.name}" marked as paid.')));
-                                    }
-                                    
-                                    _refreshData();
-                                  },
+                                          setState(() {
+                                            _payingBills.add(bill.id!);
+                                          });
+
+                                          try {
+                                            final billTransaction = model.Transaction(
+                                              type: 'expense',
+                                              amount: bill.amount,
+                                              description: 'Paid bill: ${bill.name}',
+                                              date: DateTime.now().toIso8601String(),
+                                              categoryId: await dbHelper.getOrCreateCategory(
+                                                  'Bills', currentUser.uid, type: 'expense'),
+                                            );
+                                            await dbHelper.addTransaction(
+                                                billTransaction, currentUser.uid);
+
+                                            if (bill.isRecurring) {
+                                              final nextDueDate = _calculateNextDueDate(bill);
+                                              final updatedBill =
+                                                  bill.copyWith(dueDate: nextDueDate);
+                                              await dbHelper.updateBill(
+                                                  updatedBill, currentUser.uid);
+                                              if (mounted) {
+                                                SnackbarHelper.showSuccess(context,
+                                                    'Recurring bill "${bill.name}" paid. Next due date set.');
+                                              }
+                                            } else {
+                                              await dbHelper.deleteBill(
+                                                  bill.id!, currentUser.uid);
+                                              if (mounted) {
+                                                SnackbarHelper.showSuccess(context,
+                                                    'Bill "${bill.name}" marked as paid.');
+                                              }
+                                            }
+
+                                            _refreshData();
+                                          } catch (e) {
+                                            if (mounted) {
+                                              SnackbarHelper.showError(
+                                                  context, 'Failed to pay bill');
+                                            }
+                                          } finally {
+                                            if (mounted) {
+                                              setState(() {
+                                                _payingBills.remove(bill.id);
+                                              });
+                                            }
+                                          }
+                                        },
                                 ),
                               ),
                             ],
@@ -413,10 +454,8 @@ class _HomeScreenState extends State<HomeScreen> {
       itemBuilder: (context, index) {
         final transaction = recentTransactions[index];
         final isIncome = transaction.type == 'income';
-        final amountColor = isIncome ? Colors.green : Colors.red;
+        final amountColor = isIncome ? const Color(0xFF4CAF50) : Colors.red;
         final amountPrefix = isIncome ? '+' : '-';
-        
-        final isMpesa = RegExp(r'\([A-Z0-9]{10}\)').hasMatch(transaction.description);
 
         return Dismissible(
           key: ValueKey(transaction.id),
@@ -431,17 +470,12 @@ class _HomeScreenState extends State<HomeScreen> {
               }
               return false; // Do not dismiss the item after swiping right
             } else { // Swipe left for delete
-              return await showDialog(
+              return await DialogHelper.showConfirmDialog(
                 context: context,
-                builder: (BuildContext context) {
-                  return AlertDialog(
-                    title: const Text('Confirm Deletion'), content: const Text('Are you sure you want to delete this transaction?'),
-                    actions: <Widget>[
-                      TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
-                      TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
-                    ],
-                  );
-                },
+                title: 'Confirm Deletion',
+                message: 'Are you sure you want to delete this transaction?',
+                confirmText: 'Delete',
+                confirmColor: Colors.red,
               );
             }
           },
@@ -469,33 +503,42 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           
           child: Card(
-            margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+            margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
+            elevation: 1,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: ListTile(
-              leading: isMpesa 
-                ? Image.asset('assets/mpesa_logo.png', width: 40, height: 40)
-                : Icon(isIncome ? Icons.arrow_downward : Icons.arrow_upward, color: amountColor),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: amountColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(isIncome ? Icons.arrow_downward : Icons.arrow_upward, color: amountColor, size: 20),
+              ),
               title: Text(
                 transaction.description.isNotEmpty ? transaction.description : transaction.type.capitalize(),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w500),
               ),
-              subtitle: Row(
-                children: [
-                  Icon(
-                    transaction.tag == 'business' ? Icons.business_center : Icons.person,
-                    size: 14,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${transaction.tag.capitalize()} · ${transaction.date.split('T')[0]}',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
-                  ),
-                ],
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  transaction.date.split('T')[0],
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+                ),
               ),
-              trailing: Text(
-                '$amountPrefix$_currencySymbol ${currencyFormatter.format(transaction.amount)}',
-                style: TextStyle(color: amountColor, fontWeight: FontWeight.bold),
+              trailing: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.3,
+                ),
+                child: Text(
+                  '$amountPrefix$_currencySymbol ${currencyFormatter.format(transaction.amount)}',
+                  style: TextStyle(color: amountColor, fontWeight: FontWeight.bold, fontSize: 16),
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                ),
               ),
             ),
           ),
@@ -526,16 +569,57 @@ class SummaryCard extends StatelessWidget {
     final currencyFormatter = NumberFormat.currency(locale: 'en_US', symbol: '');
 
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4.0),
-      child: ListTile(
-        leading: Icon(icon, color: color, size: 40),
-        title: Text(title),
-        trailing: Text(
-          '$currencySymbol ${currencyFormatter.format(amount)}',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: color,
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              color.withOpacity(0.1),
+              color.withOpacity(0.05),
+            ],
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
               ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$currencySymbol ${currencyFormatter.format(amount)}',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

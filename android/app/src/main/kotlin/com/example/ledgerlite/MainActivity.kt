@@ -1,4 +1,4 @@
-package com.example.ledgerlite // Make sure this line matches your package name
+package com.pft.app
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine

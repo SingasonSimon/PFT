@@ -8,14 +8,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// UPDATED: Changed the import to use the new project name 'PatoTrack'
-import 'package:PatoTrack/main.dart';
+// Import for Personal Finance Tracker app
+import 'package:personal_finance_tracker/main.dart';
 
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    // UPDATED: Changed the widget name to PatoTrack()
-    await tester.pumpWidget(const PatoTrack());
+    // Test Personal Finance Tracker widget
+    await tester.pumpWidget(const PersonalFinanceTracker());
 
     // Verify that our counter starts at 0.
     expect(find.text('0'), findsOneWidget);

@@ -108,7 +108,13 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
             children: [
               const Icon(Icons.lock_outline, size: 60),
               const SizedBox(height: 20),
-              Text(_title, style: Theme.of(context).textTheme.headlineSmall),
+              Text(
+                _title,
+                style: Theme.of(context).textTheme.headlineSmall,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+              ),
               const SizedBox(height: 30),
               PinCodeFields(
                 controller: _pinController,

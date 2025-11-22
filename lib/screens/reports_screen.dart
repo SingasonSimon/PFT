@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../helpers/database_helper.dart';
 import '../helpers/pdf_helper.dart';
-import '../models/category.dart';
 import '../models/transaction.dart' as model;
 
 class ReportsScreen extends StatefulWidget {
@@ -20,7 +19,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
   final compactFormatter = NumberFormat.compact();
   final User? _currentUser = FirebaseAuth.instance.currentUser;
 
-  String _selectedTagFilter = 'business';
   String _selectedTimeFilter = 'month';
 
   @override
@@ -45,8 +43,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   ({double profitLoss, String tip, Color color}) _getProfitLossAndTip(List<model.Transaction> transactions, String timeFilter) {
-    final businessTransactions = transactions.where((t) => t.tag == 'business' || t.type == 'income').toList();
-    
     DateTime now = DateTime.now();
     DateTime startDate;
 
@@ -64,7 +60,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         break;
     }
 
-    final periodTransactions = businessTransactions.where((t) {
+    final periodTransactions = transactions.where((t) {
       try {
         return DateTime.parse(t.date).isAfter(startDate);
       } catch (e) {
@@ -79,24 +75,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
     String periodText = timeFilter == 'week' ? 'this week' : (timeFilter == 'month' ? 'this month' : 'this year');
 
     if (profitLoss > 0) {
-      return (profitLoss: profitLoss, tip: 'Great business performance $periodText!', color: Colors.green);
+      return (profitLoss: profitLoss, tip: 'Great financial progress $periodText! Keep it up.', color: const Color(0xFF4CAF50));
     } else if (profitLoss < 0) {
-      return (profitLoss: profitLoss, tip: 'Your business is at a loss $periodText. Review expenses.', color: Colors.red);
+      return (profitLoss: profitLoss, tip: 'You\'re spending more than you earn $periodText. Review your expenses.', color: Colors.red);
     } else {
-      return (profitLoss: 0, tip: 'Your business has broken even $periodText.', color: Colors.orange);
+      return (profitLoss: 0, tip: 'Your income and expenses are balanced $periodText.', color: Colors.orange);
     }
-  }
-  
-  Map<String, double> _prepareTagBreakdownData(List<model.Transaction> transactions) {
-    final Map<String, double> tagData = {'Business': 0.0, 'Personal': 0.0};
-    for (var transaction in transactions.where((t) => t.type == 'expense')) {
-      if (transaction.tag == 'business') {
-        tagData.update('Business', (value) => value + transaction.amount);
-      } else if (transaction.tag == 'personal') {
-        tagData.update('Personal', (value) => value + transaction.amount);
-      }
-    }
-    return tagData;
   }
 
   Map<String, double> _prepareExpenseData(List<model.Transaction> transactions, Map<int, String> categoryMap) {
@@ -165,17 +149,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
               try { return DateTime.parse(t.date).isAfter(startDate); } catch (e) { return false; }
             }).toList();
 
-            final fullyFilteredTransactions = timeFilteredTransactions.where((t) {
-              if (_selectedTagFilter == 'all') return true;
-              if (t.type == 'income') return true;
-              return t.tag == _selectedTagFilter;
-            }).toList();
-
-            final expenseData = _prepareExpenseData(fullyFilteredTransactions, categoryMap);
-            final barChartData = _prepareBarChartData(fullyFilteredTransactions);
+            final expenseData = _prepareExpenseData(timeFilteredTransactions, categoryMap);
+            final barChartData = _prepareBarChartData(timeFilteredTransactions);
             final totalExpenses = expenseData.values.fold(0.0, (sum, amount) => sum + amount);
             final profitLossData = _getProfitLossAndTip(allTransactions, _selectedTimeFilter);
-            final tagBreakdownData = _prepareTagBreakdownData(timeFilteredTransactions);
 
             return Column(
               children: [
@@ -197,48 +174,84 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                  child: SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(value: 'all', label: Text('All Expenses')),
-                      ButtonSegment(value: 'business', label: Text('Business')),
-                      ButtonSegment(value: 'personal', label: Text('Personal')),
-                    ],
-                    selected: {_selectedTagFilter},
-                    onSelectionChanged: (newSelection) => setState(() => _selectedTagFilter = newSelection.first),
-                  ),
-                ),
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.all(16.0),
                     children: [
                       Card(
-                        color: profitLossData.color.withOpacity(0.15),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
+                        elevation: 3,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        child: Container(
+                          padding: const EdgeInsets.all(24.0),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20),
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                profitLossData.color.withOpacity(0.15),
+                                profitLossData.color.withOpacity(0.05),
+                              ],
+                            ),
+                          ),
                           child: Column(children: [
-                            Text('Business Profit/Loss (${_selectedTimeFilter.capitalize()})', style: Theme.of(context).textTheme.titleMedium),
-                            const SizedBox(height: 8),
                             Text(
-                              '$_currencySymbol ${NumberFormat.currency(locale: 'en_US', symbol: '').format(profitLossData.profitLoss)}',
-                              style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold, color: profitLossData.color),
+                              'Net Income (${_selectedTimeFilter.capitalize()})',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
                             ),
                             const SizedBox(height: 12),
-                            Text(profitLossData.tip, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
+                            Text(
+                              '$_currencySymbol ${NumberFormat.currency(locale: 'en_US', symbol: '').format(profitLossData.profitLoss)}',
+                              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: profitLossData.color,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: profitLossData.color.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                profitLossData.tip,
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.visible,
+                                maxLines: 3,
+                              ),
+                            ),
                           ]),
                         ),
                       ),
+                      const SizedBox(height: 32),
+                      Text(
+                        'Income vs. Expenses (${_selectedTimeFilter.capitalize()})',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 2,
+                      ),
                       const SizedBox(height: 24),
-                      Text('Income vs. Expenses (${_selectedTimeFilter.capitalize()}, ${_selectedTagFilter.capitalize()})', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                      const SizedBox(height: 20),
                       SizedBox(
                         height: 250, 
                         child: BarChart(
                            BarChartData(
                             alignment: BarChartAlignment.spaceAround,
                             barGroups: [
-                              _buildBarGroupData(0, barChartData['Income'] ?? 0, Colors.green),
+                              _buildBarGroupData(0, barChartData['Income'] ?? 0, const Color(0xFF4CAF50)),
                               _buildBarGroupData(1, barChartData['Expenses'] ?? 0, Colors.red),
                             ],
                             titlesData: FlTitlesData(
@@ -274,30 +287,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       ),
                       const SizedBox(height: 40),
                       
-                      if (tagBreakdownData['Business']! > 0 || tagBreakdownData['Personal']! > 0) ...[
-                        Text('Business vs. Personal (${_selectedTimeFilter.capitalize()})', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                        const SizedBox(height: 20),
-                        SizedBox(
-                          height: 200, 
-                          child: PieChart(
-                            PieChartData(
-                              sectionsSpace: 2,
-                              centerSpaceRadius: 30,
-                              sections: [
-                                if (tagBreakdownData['Business']! > 0)
-                                  PieChartSectionData(value: tagBreakdownData['Business'], title: 'Business', color: Colors.blue, radius: 80),
-                                if (tagBreakdownData['Personal']! > 0)
-                                  PieChartSectionData(value: tagBreakdownData['Personal'], title: 'Personal', color: Colors.purple, radius: 80),
-                              ],
-                            ),
-                          )
-                        ),
-                        const SizedBox(height: 40),
-                      ],
-                      
                       if (expenseData.isNotEmpty) ...[
-                        Text('Expense Breakdown (${_selectedTimeFilter.capitalize()}, ${_selectedTagFilter.capitalize()})', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                        const SizedBox(height: 20),
+                        Text(
+                          'Expense Breakdown (${_selectedTimeFilter.capitalize()})',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
+                        ),
+                        const SizedBox(height: 24),
                         SizedBox(
                           height: 300, 
                           child: PieChart(
@@ -318,16 +320,41 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           )
                         ),
                         const SizedBox(height: 24),
-                        ...expenseData.entries.map((entry) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4.0),
-                              child: Row(children: [
-                                Container(width: 16, height: 16, color: _getColorForCategory(entry.key)),
-                                const SizedBox(width: 8),
-                                Text('${entry.key}: $_currencySymbol${entry.value.toStringAsFixed(2)}', style: const TextStyle(fontSize: 16)),
-                              ]),
+                        ...expenseData.entries.map((entry) => Card(
+                              margin: const EdgeInsets.symmetric(vertical: 6.0),
+                              elevation: 1,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: Row(children: [
+                                  Container(
+                                    width: 20,
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      color: _getColorForCategory(entry.key),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      entry.key,
+                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '$_currencySymbol${entry.value.toStringAsFixed(2)}',
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ]),
+                              ),
                             )),
                       ] else
-                        Center(child: Padding(padding: const EdgeInsets.all(20.0), child: Text('No ${_selectedTagFilter} expense data for this period.'))),
+                        Center(child: Padding(padding: const EdgeInsets.all(20.0), child: Text('No expense data for this period.'))),
                     ],
                   ),
                 ),
@@ -338,15 +365,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     child: ElevatedButton.icon(
                       onPressed: () {
                         if (_currentUser != null) {
-                          final filterName = _selectedTagFilter.capitalize();
                           final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-                          final fileName = 'PatoTrack_${filterName}_Report_$dateStr.pdf';
+                          final fileName = 'PersonalFinanceTracker_Report_$dateStr.pdf';
 
-                          PdfHelper.generateAndSharePdf(fullyFilteredTransactions, _currentUser!.displayName ?? 'User', fileName);
+                          PdfHelper.generateAndSharePdf(timeFilteredTransactions, _currentUser!.displayName ?? 'User', fileName);
                         }
                       },
                       icon: const Icon(Icons.picture_as_pdf),
-                      label: Text('Export "${_selectedTagFilter.capitalize()}" Report'),
+                      label: const Text('Export Report'),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

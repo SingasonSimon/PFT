@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../helpers/database_helper.dart';
+import '../helpers/date_picker_helper.dart';
 import '../models/category.dart';
 import '../models/transaction.dart' as model;
 import 'transaction_detail_screen.dart';
@@ -124,22 +125,34 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
                     value: _filterCategoryId,
                     hint: const Text('Filter by Category'),
                     decoration: const InputDecoration(border: OutlineInputBorder()),
-                    items: _allCategories.map((cat) => DropdownMenuItem(value: cat.id, child: Text(cat.name))).toList(),
+                    items: _allCategories.map((cat) => DropdownMenuItem(
+                      value: cat.id,
+                      child: Text(
+                        cat.name,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    )).toList(),
                     onChanged: (value) => setModalState(() => _filterCategoryId = value),
                   ),
                   const SizedBox(height: 16),
 
                   // Filter by Date Range
                   ListTile(
-                    title: Text(_filterDateRange == null 
-                        ? 'Filter by Date' 
-                        : '${DateFormat.yMd().format(_filterDateRange!.start)} - ${DateFormat.yMd().format(_filterDateRange!.end)}'),
+                    title: Text(
+                      _filterDateRange == null 
+                          ? 'Filter by Date' 
+                          : '${DateFormat.yMd().format(_filterDateRange!.start)} - ${DateFormat.yMd().format(_filterDateRange!.end)}',
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                     trailing: const Icon(Icons.calendar_today),
                     onTap: () async {
-                      final picked = await showDateRangePicker(
+                      final picked = await DatePickerHelper.showModernDateRangePicker(
                         context: context,
                         firstDate: DateTime(2020),
                         lastDate: DateTime.now().add(const Duration(days: 365)),
+                        initialDateRange: _filterDateRange,
                       );
                       if (picked != null) {
                         setModalState(() => _filterDateRange = picked);
@@ -213,13 +226,19 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
           : Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.all(8.0),
+                  padding: const EdgeInsets.all(16.0),
                   child: TextField(
                     controller: _searchController,
+                    style: const TextStyle(color: Colors.black87, fontSize: 16),
                     decoration: InputDecoration(
                       hintText: 'Search by description or amount',
                       prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                     ),
                   ),
                 ),
@@ -231,31 +250,46 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
                           itemBuilder: (context, index) {
                             final transaction = _filteredTransactions[index];
                             final isIncome = transaction.type == 'income';
-                            final amountColor = isIncome ? Colors.green : Colors.red;
+                            final amountColor = isIncome ? const Color(0xFF4CAF50) : Colors.red;
                             final amountPrefix = isIncome ? '+' : '-';
 
                             return Card(
-                              margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                              margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
+                              elevation: 1,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               child: ListTile(
-                                leading: Icon(isIncome ? Icons.arrow_downward : Icons.arrow_upward, color: amountColor),
-                                title: Text(transaction.description.isEmpty ? transaction.type.capitalize() : transaction.description),
-                                subtitle: Row(
-                                  children: [
-                                    Icon(
-                                      transaction.tag == 'business' ? Icons.business_center : Icons.person,
-                                      size: 14,
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '${transaction.tag.capitalize()} · ${transaction.date.split('T')[0]}',
-                                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
-                                    ),
-                                  ],
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                leading: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: amountColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(isIncome ? Icons.arrow_downward : Icons.arrow_upward, color: amountColor, size: 20),
                                 ),
-                                trailing: Text(
-                                  '$amountPrefix${currencyFormatter.format(transaction.amount)}',
-                                  style: TextStyle(color: amountColor, fontWeight: FontWeight.bold),
+                                title: Text(
+                                  transaction.description.isEmpty ? transaction.type.capitalize() : transaction.description,
+                                  style: const TextStyle(fontWeight: FontWeight.w500),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                subtitle: Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    transaction.date.split('T')[0],
+                                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+                                  ),
+                                ),
+                                trailing: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth: MediaQuery.of(context).size.width * 0.3,
+                                  ),
+                                  child: Text(
+                                    '$amountPrefix${currencyFormatter.format(transaction.amount)}',
+                                    style: TextStyle(color: amountColor, fontWeight: FontWeight.bold, fontSize: 16),
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.end,
+                                  ),
                                 ),
                                 onTap: () async {
                                   final result = await Navigator.of(context).push<bool>(

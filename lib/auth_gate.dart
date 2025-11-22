@@ -2,7 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'main.dart'; // Your MainScreen with the bottom nav bar
-import 'screens/login_screen.dart';
+import 'screens/welcome_screen.dart';
 import 'screens/passcode_screen.dart';
 
 class AuthGate extends StatefulWidget {
@@ -30,9 +30,9 @@ class _AuthGateState extends State<AuthGate> {
           );
         }
 
-        // User is not signed in, show the login screen
+        // User is not signed in, show the welcome screen
         if (!snapshot.hasData) {
-          return const LoginScreen();
+          return const WelcomeScreen();
         }
 
         // User is signed in, now check for passcode

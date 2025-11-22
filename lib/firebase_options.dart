@@ -41,46 +41,46 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDhfO0t9sJ78XsMZV_vN3u4DSkUjw6TuKs',
-    appId: '1:142893563437:web:f673c697460c648e1cc2a4',
-    messagingSenderId: '142893563437',
-    projectId: 'ledgerlite-app',
-    authDomain: 'ledgerlite-app.firebaseapp.com',
-    storageBucket: 'ledgerlite-app.firebasestorage.app',
+    apiKey: 'AIzaSyC6ThfuH33A5hgJlVRNSLpPcX_fusR7Wc0',
+    appId: '1:376182475816:web:default',
+    messagingSenderId: '376182475816',
+    projectId: 'pft-app-aac78',
+    authDomain: 'pft-app-aac78.firebaseapp.com',
+    storageBucket: 'pft-app-aac78.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBP2ZFBwBAJtv41-ifTZ34icb5G9jJrXws',
-    appId: '1:142893563437:android:e66ffed3510e91cc1cc2a4',
-    messagingSenderId: '142893563437',
-    projectId: 'ledgerlite-app',
-    storageBucket: 'ledgerlite-app.firebasestorage.app',
+    apiKey: 'AIzaSyC6ThfuH33A5hgJlVRNSLpPcX_fusR7Wc0',
+    appId: '1:376182475816:android:b6d7d3611b6cbf3cf5b91d',
+    messagingSenderId: '376182475816',
+    projectId: 'pft-app-aac78',
+    storageBucket: 'pft-app-aac78.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyA64Z6QAEQjeuOSnkEGhsTn-zEKIqEW5Ww',
-    appId: '1:142893563437:ios:c256c80ab3e5b3c51cc2a4',
-    messagingSenderId: '142893563437',
-    projectId: 'ledgerlite-app',
-    storageBucket: 'ledgerlite-app.firebasestorage.app',
-    iosBundleId: 'com.example.ledgerlite',
+    apiKey: 'AIzaSyC6ThfuH33A5hgJlVRNSLpPcX_fusR7Wc0',
+    appId: '1:376182475816:ios:default',
+    messagingSenderId: '376182475816',
+    projectId: 'pft-app-aac78',
+    storageBucket: 'pft-app-aac78.firebasestorage.app',
+    iosBundleId: 'com.pft.app',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyA64Z6QAEQjeuOSnkEGhsTn-zEKIqEW5Ww',
-    appId: '1:142893563437:ios:c256c80ab3e5b3c51cc2a4',
-    messagingSenderId: '142893563437',
-    projectId: 'ledgerlite-app',
-    storageBucket: 'ledgerlite-app.firebasestorage.app',
-    iosBundleId: 'com.example.ledgerlite',
+    apiKey: 'AIzaSyC6ThfuH33A5hgJlVRNSLpPcX_fusR7Wc0',
+    appId: '1:376182475816:ios:default',
+    messagingSenderId: '376182475816',
+    projectId: 'pft-app-aac78',
+    storageBucket: 'pft-app-aac78.firebasestorage.app',
+    iosBundleId: 'com.pft.app',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDhfO0t9sJ78XsMZV_vN3u4DSkUjw6TuKs',
-    appId: '1:142893563437:web:3938766407cc881c1cc2a4',
-    messagingSenderId: '142893563437',
-    projectId: 'ledgerlite-app',
-    authDomain: 'ledgerlite-app.firebaseapp.com',
-    storageBucket: 'ledgerlite-app.firebasestorage.app',
+    apiKey: 'AIzaSyC6ThfuH33A5hgJlVRNSLpPcX_fusR7Wc0',
+    appId: '1:376182475816:web:default',
+    messagingSenderId: '376182475816',
+    projectId: 'pft-app-aac78',
+    authDomain: 'pft-app-aac78.firebaseapp.com',
+    storageBucket: 'pft-app-aac78.firebasestorage.app',
   );
 }
