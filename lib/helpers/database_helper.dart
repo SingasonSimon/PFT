@@ -4,7 +4,7 @@ import 'package:sqflite/sqflite.dart' hide Transaction;
 import 'package:path/path.dart';
 import '../models/bill.dart';
 import '../models/transaction.dart' as model;
-import '../models/category.dart';
+import '../models/category.dart' as app_category;
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -193,7 +193,7 @@ class DatabaseHelper {
   }
 
   // --- Category Functions ---
-  Future<int> addCategory(Category category, String userId) async {
+  Future<int> addCategory(app_category.Category category, String userId) async {
     final db = await database;
     
     // Check if category with same name and type already exists
@@ -227,7 +227,7 @@ class DatabaseHelper {
     return newId;
   }
 
-  Future<int> updateCategory(Category category, String userId) async {
+  Future<int> updateCategory(app_category.Category category, String userId) async {
     final db = await database;
     final result = await db.update('categories', category.toMap(), where: 'id = ? AND userId = ?', whereArgs: [category.id, userId]);
     try {
@@ -246,7 +246,7 @@ class DatabaseHelper {
     return result;
   }
 
-  Future<List<Category>> getCategories(String userId, {String? type}) async {
+  Future<List<app_category.Category>> getCategories(String userId, {String? type}) async {
     final db = await database;
     List<Map<String, dynamic>> maps;
     if (type != null) {
@@ -254,7 +254,7 @@ class DatabaseHelper {
     } else {
       maps = await db.query('categories', where: 'userId = ?', whereArgs: [userId], orderBy: 'name');
     }
-    return List.generate(maps.length, (i) => Category.fromMap(maps[i]));
+    return List.generate(maps.length, (i) => app_category.Category.fromMap(maps[i]));
   }
   
   Future<int> deleteCategory(int id, String userId) async {
@@ -276,10 +276,10 @@ class DatabaseHelper {
     return result;
   }
 
-  Future<Category?> getCategoryByName(String name, String userId, String type) async {
+  Future<app_category.Category?> getCategoryByName(String name, String userId, String type) async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query('categories', where: 'name = ? AND userId = ? AND type = ?', whereArgs: [name, userId, type]);
-    if (maps.isNotEmpty) return Category.fromMap(maps.first);
+    if (maps.isNotEmpty) return app_category.Category.fromMap(maps.first);
     return null;
   }
   
@@ -288,7 +288,7 @@ class DatabaseHelper {
     if (existingCategory != null && existingCategory.id != null) {
       return existingCategory.id!;
     } else {
-      final newCategory = Category(name: name, type: type);
+      final newCategory = app_category.Category(name: name, type: type);
       final newId = await addCategory(newCategory, userId);
       if (newId == 0) {
         final finalCategory = await getCategoryByName(name, userId, type);
