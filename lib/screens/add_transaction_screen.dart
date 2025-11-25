@@ -23,7 +23,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   DateTime _selectedDate = DateTime.now();
 
   int? _selectedCategoryId;
-  late Future<List<Category>> _categoriesFuture;
+  List<Category> _categories = [];
+  bool _isCategoryLoading = true;
   bool _isSaving = false;
 
   final dbHelper = DatabaseHelper();
@@ -35,12 +36,48 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     _loadCategories();
   }
 
-  void _loadCategories() {
-    if (_currentUser != null) {
+  Future<void> _loadCategories() async {
+    if (_currentUser == null) return;
+
+    setState(() {
+      _isCategoryLoading = true;
+    });
+
+    try {
+      final categories =
+          await dbHelper.getCategories(_currentUser!.uid, type: _transactionType);
+
+      if (!mounted) return;
+
       setState(() {
-        _categoriesFuture =
-            dbHelper.getCategories(_currentUser!.uid, type: _transactionType);
+        _categories = categories;
+        _isCategoryLoading = false;
+
+        if (_categories.isEmpty) {
+          _selectedCategoryId = null;
+          return;
+        }
+
+        final hasExistingSelection = _selectedCategoryId != null &&
+            _categories.any((category) => category.id == _selectedCategoryId);
+
+        if (!hasExistingSelection) {
+          _selectedCategoryId = _categories.first.id;
+        }
       });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _categories = [];
+        _selectedCategoryId = null;
+        _isCategoryLoading = false;
+      });
+
+      SnackbarHelper.showError(
+        context,
+        'Failed to load categories. Please try again.',
+      );
     }
   }
 
@@ -234,110 +271,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(
-                    child: FutureBuilder<List<Category>>(
-                      future: _categoriesFuture,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return Container(
-                            height: 60,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[50],
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.grey[300]!),
-                            ),
-                            child: const Center(
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            ),
-                          );
-                        }
-
-                        final categories = snapshot.data ?? [];
-
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: Colors.grey[50],
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.grey[300]!),
-                          ),
-                          child: DropdownButtonFormField<int>(
-                            value: _selectedCategoryId,
-                            decoration: InputDecoration(
-                              filled: true,
-                              fillColor: Colors.transparent,
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 16,
-                              ),
-                              prefixIcon: Container(
-                                margin: const EdgeInsets.all(12),
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF4CAF50).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Icon(
-                                  _transactionType == 'expense'
-                                      ? Icons.category
-                                      : Icons.source,
-                                  color: const Color(0xFF4CAF50),
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                            style: const TextStyle(
-                              color: Colors.black87,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            hint: Text(
-                              'Select category',
-                              style: TextStyle(color: Colors.grey[500]),
-                            ),
-                            items: categories.map((category) {
-                              IconData icon = Icons.label;
-                              if (category.iconCodePoint != null) {
-                                icon = IconData(
-                                  category.iconCodePoint!,
-                                  fontFamily: 'MaterialIcons',
-                                );
-                              }
-                              return DropdownMenuItem<int>(
-                                value: category.id,
-                                child: Row(
-                                  children: [
-                                    Icon(icon, size: 20, color: Colors.grey[700]),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        category.name,
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 1,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                            onChanged: (int? newValue) {
-                              setState(() {
-                                _selectedCategoryId = newValue;
-                              });
-                            },
-                            validator: (value) =>
-                                value == null ? 'Please select a category' : null,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+                  Expanded(child: _buildCategoryDropdown()),
                   const SizedBox(width: 12),
                   Container(
                     decoration: BoxDecoration(
@@ -347,14 +281,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     ),
                     child: IconButton(
                       icon: const Icon(Icons.add, color: Color(0xFF4CAF50)),
-                      onPressed: _isSaving ? null : () async {
-                        await Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const ManageCategoriesScreen(),
-                          ),
-                        );
-                        _loadCategories();
-                      },
+                      onPressed: _isSaving ? null : _handleAddCategory,
                       tooltip: 'Add Category',
                       iconSize: 28,
                     ),
@@ -538,5 +465,151 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildCategoryDropdown() {
+    if (_isCategoryLoading) {
+      return Container(
+        height: 60,
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: const Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    if (_categories.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: Row(
+          children: [
+            Container(
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4CAF50).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                _transactionType == 'expense' ? Icons.category : Icons.source,
+                color: const Color(0xFF4CAF50),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                'No ${_transactionType} categories yet. Tap the + button to create one.',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: DropdownButtonFormField<int>(
+        value: _selectedCategoryId,
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: Colors.transparent,
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
+          prefixIcon: Container(
+            margin: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF4CAF50).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              _transactionType == 'expense' ? Icons.category : Icons.source,
+              color: const Color(0xFF4CAF50),
+              size: 20,
+            ),
+          ),
+        ),
+        style: const TextStyle(
+          color: Colors.black87,
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
+        hint: Text(
+          'Select category',
+          style: TextStyle(color: Colors.grey[500]),
+        ),
+        items: _categories.map((category) {
+          IconData icon = Icons.label;
+          if (category.iconCodePoint != null) {
+            icon = IconData(
+              category.iconCodePoint!,
+              fontFamily: 'MaterialIcons',
+            );
+          }
+          return DropdownMenuItem<int>(
+            value: category.id,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 20, color: Colors.grey[700]),
+                const SizedBox(width: 12),
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: Text(
+                    category.name,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+        onChanged: (int? newValue) {
+          setState(() {
+            _selectedCategoryId = newValue;
+          });
+        },
+        validator: (value) =>
+            value == null ? 'Please select a category' : null,
+      ),
+    );
+  }
+
+  Future<void> _handleAddCategory() async {
+    final bool? updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (context) => const ManageCategoriesScreen(),
+      ),
+    );
+
+    if (updated == true || updated == null) {
+      await _loadCategories();
+    }
   }
 }
