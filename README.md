@@ -2,422 +2,297 @@
 
 <div align="center">
 
-![Flutter](https://img.shields.io/badge/Flutter-3.2.3+-02569B?logo=flutter&logoColor=white)
-![Dart](https://img.shields.io/badge/Dart-3.2.3+-0175C2?logo=dart&logoColor=white)
-![Firebase](https://img.shields.io/badge/Firebase-5.0+-FFCA28?logo=firebase&logoColor=black)
+![Flutter](https://img.shields.io/badge/Flutter-3.22+-02569B?logo=flutter&logoColor=white)
+![Dart](https://img.shields.io/badge/Dart-3.4+-0175C2?logo=dart&logoColor=white)
+![Firebase](https://img.shields.io/badge/Firebase-Auth%20%26%20Firestore-FFCA28?logo=firebase&logoColor=black)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 
-A modern, feature-rich Flutter application for managing your personal finances. Track income, expenses, bills, and generate comprehensive financial reports with beautiful visualizations.
+**Comprehensive  documentation for the Personal Finance Tracker mobile app.**
 
-[Features](#-features) • [Installation](#-installation) • [Setup](#-setup) • [Usage](#-usage) • [Tech Stack](#-tech-stack)
+[Overview](#-overview) • [Architecture](#-system-architecture) • [Tech Stack](#-tech-stack) • [Setup](#-setup--deployment) • [Usage](#-feature-guide) • [Testing](#-quality-assurance) • [Support](#-support)
 
 </div>
 
 ---
 
-## 📱 Overview
+## 📘 Overview
 
-Personal Finance Tracker (PFT) is a comprehensive mobile application designed to help you take control of your finances. Built with Flutter and Firebase, it provides a seamless experience for tracking your income, managing expenses, monitoring bills, and analyzing your financial health through interactive charts and reports.
+The Personal Finance Tracker (PFT) is a cross-platform Flutter application that helps individuals record transactions, manage bills, analyze expenses, and monitor financial health from a single interface. The project intentionally focuses on educational clarity: the codebase demonstrates clean architecture principles, modern UI/UX, Firebase integration, and offline-first patterns suitable for student projects and professional portfolios.
 
-### Key Highlights
+### Objectives
+- Provide a practical case study for Flutter + Firebase driven applications.
+- Demonstrate end-to-end mobile app delivery (design, development, deployment).
+- Serve as starter material for coursework, documentation practice, and code reviews.
 
-- 💰 **Complete Financial Management** - Track all your income and expenses in one place
-- 📊 **Visual Analytics** - Interactive charts and graphs for better financial insights
-- 🔔 **Bill Reminders** - Never miss a payment with smart bill tracking
-- ☁️ **Cloud Sync** - Your data is safely backed up and synced across devices
-- 🔒 **Secure** - Firebase Authentication ensures your data is protected
-- 🎨 **Modern UI** - Beautiful Material 3 design with a clean, intuitive interface
-
----
-
-## ✨ Features
-
-### 💵 Transaction Management
-- **Add Transactions**: Quickly record income and expenses with detailed categorization
-- **Edit & Delete**: Modify or remove transactions with swipe gestures
-- **Search & Filter**: Find specific transactions by description, amount, category, or date range
-- **Transaction History**: View all your transactions in a clean, organized list
-
-### 📁 Category Management
-- **Custom Categories**: Create personalized income and expense categories
-- **Category Icons**: Choose from a variety of icons for better visual organization
-- **Category Colors**: Assign colors to categories for quick identification
-- **Full CRUD Operations**: Create, read, update, and delete categories seamlessly
-
-### 💳 Bill Tracking
-- **Recurring Bills**: Set up weekly or monthly recurring bills
-- **Bill Reminders**: Get notified about upcoming bill payments
-- **Payment Tracking**: Mark bills as paid and track payment history
-- **Due Date Management**: Never miss a payment with clear due date indicators
-
-### 📈 Financial Reports
-- **Income vs Expenses**: Visual comparison with bar charts
-- **Expense Breakdown**: Pie charts showing spending by category
-- **Net Income Analysis**: Track your financial health over time
-- **Time Period Filters**: Analyze data by week, month, or year
-- **PDF Export**: Generate and share detailed financial reports
-
-### 👤 User Management
-- **Secure Authentication**: Email and password authentication via Firebase
-- **Profile Management**: Update your name and profile picture
-- **Currency Selection**: Choose your preferred currency (KSh, USD, EUR, GBP)
-- **Data Backup & Restore**: Sync your data to Firebase Cloud Firestore
-
-### 🔐 Security Features
-- **Passcode Protection**: Add an extra layer of security with app passcode
-- **Biometric Authentication**: Use fingerprint or face ID (where supported)
-- **Cloud Backup**: Automatic data synchronization to Firebase
-
-### 🎨 User Experience
-- **Modern Material 3 Design**: Beautiful, intuitive interface
-- **Green Theme**: Consistent color scheme throughout the app
-- **Responsive Layout**: Optimized for all screen sizes
-- **Smooth Animations**: Polished transitions and interactions
-- **Offline Support**: Works offline with local SQLite database
+### Success Metrics
+- **Reliability:** Seamless auth + persistent sessions after app restarts.
+- **Productivity:** Sub-5 second cold start, <2 second major navigation transitions.
+- **Data Integrity:** Transactions synced across devices within 1 second (Wi-Fi).
 
 ---
 
-## 🚀 Installation
+## 🏗 System Architecture
 
-### Prerequisites
-
-Before you begin, ensure you have the following installed:
-
-- **Flutter SDK** (3.2.3 or higher)
-- **Dart SDK** (3.2.3 or higher)
-- **Android Studio** / **Xcode** (for mobile development)
-- **Firebase Account** (for authentication and cloud sync)
-- **Git** (for version control)
-
-### Step 1: Clone the Repository
-
-```bash
-git clone https://github.com/SingasonSimon/PFT.git
-cd PFT
+```
+┌──────────────────┐
+│   Presentation    │
+│ (Flutter Screens) │
+└────────┬─────────┘
+         │
+         │ Provider / ValueNotifier
+         ▼
+┌──────────────────┐
+│  Application     │
+│  Services Layer  │  ← dialog helpers, date pickers, notification orchestration
+└────────┬─────────┘
+         │
+         │ Repository Pattern
+         ▼
+┌──────────────────┐           ┌────────────────────┐
+│ Local Persistence │◀────────▶│   Cloud Services    │
+│ (SQLite, Shared   │          │ Firebase Auth +     │
+│ Preferences)      │          │ Cloud Firestore     │
+└──────────────────┘           └────────────────────┘
 ```
 
-### Step 2: Install Dependencies
-
-```bash
-flutter pub get
-```
-
-### Step 3: Firebase Setup
-
-1. **Create a Firebase Project**
-   - Go to [Firebase Console](https://console.firebase.google.com/)
-   - Create a new project or use an existing one
-   - Enable **Authentication** → **Email/Password**
-
-2. **Configure Android**
-   - Download `google-services.json` from Firebase Console
-   - Place it in `android/app/google-services.json`
-
-3. **Configure iOS** (if developing for iOS)
-   - Download `GoogleService-Info.plist` from Firebase Console
-   - Place it in `ios/Runner/GoogleService-Info.plist`
-
-4. **Enable Cloud Firestore**
-   - In Firebase Console, go to **Firestore Database**
-   - Create database in **test mode** (or production mode with proper security rules)
-
-### Step 4: Configure Cloudinary (for Profile Images)
-
-1. Create a [Cloudinary](https://cloudinary.com/) account
-2. Update `lib/helpers/config.dart` with your Cloudinary credentials:
-   ```dart
-   class AppConfig {
-     static const String cloudinaryCloudName = 'your_cloud_name';
-     static const String cloudinaryApiKey = 'your_api_key';
-     static const String cloudinaryApiSecret = 'your_api_secret';
-   }
-   ```
-
-### Step 5: Run the App
-
-```bash
-# For Android
-flutter run
-
-# For iOS
-flutter run -d ios
-
-# For a specific device
-flutter devices  # List available devices
-flutter run -d <device_id>
-```
+- **Authentication flow:** `AuthGate` listens to Firebase auth stream, then defers to `PasscodeScreen` when local lock is enabled.
+- **Data flow:** Transactions, bills, and categories are stored locally (SQLite) for offline use, then mirrored to Cloud Firestore per authenticated user.
+- **Images:** Uploaded to Cloudinary with signed URLs and cache-busting headers to prevent stale profile photos.
+- **Notifications:** Managed through `flutter_local_notifications` with bill reminders scheduled from SQLite data.
 
 ---
 
-## 📖 Usage
+## 🧰 Tech Stack
 
-### Getting Started
+| Layer | Technology | Purpose |
+| --- | --- | --- |
+| Framework | Flutter (Material 3) | Cross-platform UI |
+| Language | Dart | Application logic |
+| Auth | Firebase Authentication | Secure login & session mgmt |
+| Database (Cloud) | Cloud Firestore | Multi-device sync |
+| Database (Local) | SQLite (`sqflite`) | Offline access & caching |
+| Storage | Cloudinary | Profile image hosting |
+| State Mgmt | Provider, ValueNotifier | Lightweight and explicit state flow |
+| Notifications | `flutter_local_notifications` | Bill reminders |
+| Reporting | `fl_chart`, `pdf`, `printing` | Analytics & export |
+| Utilities | `intl`, `crypto`, `image_picker`, `url_launcher` | Formatting, signatures, media, deep links |
 
-1. **Welcome Screen**: First-time users will see a welcome screen
-2. **Sign Up**: Create an account with your email and password
-3. **Sign In**: Use your credentials to access your account
-
-### Adding Transactions
-
-1. Tap the **"Add Transaction"** floating action button on the home screen
-2. Select transaction type (Income or Expense)
-3. Enter amount and description
-4. Choose a category (or create a new one)
-5. Select date
-6. Tap **"Save Transaction"**
-
-### Managing Categories
-
-1. Navigate to **Profile** → **Manage Categories**
-2. Tap **"+"** to add a new category
-3. Enter category name, select type (Income/Expense), and choose an icon
-4. Tap **"Save"** to create the category
-
-### Setting Up Bills
-
-1. Go to **Home** → **Upcoming Bills** section
-2. Tap **"Add Bill"**
-3. Enter bill name, amount, and due date
-4. Enable **"Recurring Bill"** if needed
-5. Select recurrence type (Weekly or Monthly)
-6. Tap **"Save Bill"**
-
-### Viewing Reports
-
-1. Navigate to the **Reports** tab
-2. Select time period (Week, Month, or Year)
-3. View:
-   - Net Income summary
-   - Income vs Expenses bar chart
-   - Expense breakdown pie chart
-4. Tap **"Export Report"** to generate a PDF
-
-### Profile Settings
-
-1. Go to **Profile** tab
-2. **Update Name**: Tap the edit icon next to your name
-3. **Change Profile Picture**: Tap your profile picture to upload a new one
-4. **Change Currency**: Select your preferred currency
-5. **Set Passcode**: Enable app passcode for extra security
-6. **Backup & Restore**: Sync your data to/from Firebase
+> Full dependency list lives in `pubspec.yaml`.
 
 ---
 
-## 🛠️ Tech Stack
-
-### Frontend
-- **Flutter** - Cross-platform UI framework
-- **Dart** - Programming language
-- **Material 3** - Modern design system
-
-### Backend & Services
-- **Firebase Authentication** - User authentication
-- **Cloud Firestore** - Cloud database and sync
-- **Cloudinary** - Image storage and management
-
-### Local Storage
-- **SQLite (sqflite)** - Local database for offline support
-- **SharedPreferences** - User preferences and settings
-
-### State Management
-- **Provider** - State management
-- **ValueNotifier** - Local state management
-
-### UI Components
-- **fl_chart** - Beautiful charts and graphs
-- **google_fonts** - Custom typography
-- **intl** - Internationalization and formatting
-
-### Additional Packages
-- **image_picker** - Profile picture selection
-- **url_launcher** - External links (WhatsApp support)
-- **flutter_local_notifications** - Bill reminders
-- **pdf** & **printing** - Report generation
-- **crypto** - Secure image upload signatures
-
----
-
-## 📁 Project Structure
+## 🗂 Repository Layout
 
 ```
 lib/
-├── auth_gate.dart              # Authentication routing
-├── main.dart                    # App entry point and navigation
-├── firebase_options.dart        # Firebase configuration
+├── auth_gate.dart                # Auth + passcode routing
+├── main.dart                     # App shell, navigation, theming
+├── firebase_options.dart         # Generated Firebase config
 │
 ├── helpers/
-│   ├── config.dart             # App configuration (Cloudinary)
-│   ├── database_helper.dart    # SQLite database operations
-│   ├── date_picker_helper.dart # Modern date picker
-│   ├── dialog_helper.dart      # Reusable dialog components
-│   ├── notification_service.dart # Bill reminders
-│   └── pdf_helper.dart         # PDF report generation
+│   ├── config.dart               # Cloudinary + app constants
+│   ├── database_helper.dart      # SQLite access + migrations
+│   ├── date_picker_helper.dart   # Consistent Material date pickers
+│   ├── dialog_helper.dart        # Snackbar/toast/dialog utilities
+│   ├── notification_service.dart # Bill reminder scheduling
+│   └── pdf_helper.dart           # PDF export logic
 │
 ├── models/
-│   ├── bill.dart               # Bill data model
-│   ├── category.dart           # Category data model
-│   └── transaction.dart       # Transaction data model
+│   ├── bill.dart
+│   ├── category.dart
+│   └── transaction.dart
 │
 └── screens/
-    ├── welcome_screen.dart     # Onboarding screen
-    ├── login_screen.dart       # User login
-    ├── signup_screen.dart      # User registration
-    ├── home_screen.dart        # Main dashboard
+    ├── welcome_screen.dart
+    ├── login_screen.dart
+    ├── signup_screen.dart
+    ├── home_screen.dart
     ├── add_transaction_screen.dart
     ├── transaction_detail_screen.dart
     ├── all_transactions_screen.dart
     ├── manage_categories_screen.dart
     ├── add_bill_screen.dart
-    ├── reports_screen.dart      # Financial reports
-    ├── profile_screen.dart     # User settings
-    └── passcode_screen.dart    # Passcode setup/verification
+    ├── reports_screen.dart
+    ├── profile_screen.dart
+    └── passcode_screen.dart
 ```
 
 ---
 
-## 🔧 Configuration
+## 📋 Feature Guide
 
-### Firebase Setup
+| Module | Capabilities | Key Files |
+| --- | --- | --- |
+| Transactions | CRUD, filtering, timeline view | `add_transaction_screen.dart`, `all_transactions_screen.dart` |
+| Categories | Icon & color picker, duplication guard | `manage_categories_screen.dart` |
+| Bills | Recurrence, reminders, paid history | `add_bill_screen.dart`, `notification_service.dart` |
+| Reports | Income vs expense, category breakdown, PDF export | `reports_screen.dart`, `pdf_helper.dart` |
+| Profile | Photo upload (Cloudinary), currency, WhatsApp support | `profile_screen.dart`, `config.dart` |
+| Security | Firebase Auth, passcode unlock, optional biometrics | `auth_gate.dart`, `passcode_screen.dart` |
 
-1. **Authentication**
-   - Enable Email/Password authentication in Firebase Console
-   - No additional configuration needed
-
-2. **Firestore Database**
-   - Create database in test mode for development
-   - Structure: `users/{userId}/transactions/{transactionId}`
-   - Structure: `users/{userId}/categories/{categoryId}`
-   - Structure: `users/{userId}/bills/{billId}`
-
-3. **Security Rules** (Production)
-   ```javascript
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /users/{userId}/{document=**} {
-         allow read, write: if request.auth != null && request.auth.uid == userId;
-       }
-     }
-   }
-   ```
-
-### Cloudinary Setup
-
-1. Sign up at [cloudinary.com](https://cloudinary.com/)
-2. Get your Cloud Name, API Key, and API Secret
-3. Update `lib/helpers/config.dart` with your credentials
+UX staples include consistent input theming, animated dialogs, loading overlays, disabled buttons during network calls, and Snackbar-driven feedback.
 
 ---
 
-## 🧪 Development
+## ⚙️ Setup & Deployment
 
-### Running Tests
+### 1. System Prerequisites
+- Flutter SDK 3.22+
+- Dart SDK 3.4+
+- Android Studio / Xcode /VS Code
+- Firebase project with Auth + Firestore enabled
+- Cloudinary account for media storage
 
+### 2. Clone & Install
 ```bash
-flutter test
+git clone https://github.com/SingasonSimon/PFT.git
+cd PFT
+flutter pub get
 ```
 
-### Code Analysis
+### 3. Firebase Configuration
+1. Create/Select Firebase project.
+2. Enable Email/Password Authentication.
+3. Add Android app → download `google-services.json` → place in `android/app/`.
+4. (Optional) Add iOS app → place `GoogleService-Info.plist` in `ios/Runner/`.
+5. Create Cloud Firestore database (test mode for development).
 
-```bash
-flutter analyze
+**Security rules (production baseline):**
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
 ```
 
-### Building for Production
+### 4. Cloudinary Credentials
+Update `lib/helpers/config.dart`:
+```dart
+class AppConfig {
+  static const cloudinaryCloudName = 'your_cloud_name';
+  static const cloudinaryApiKey = 'your_api_key';
+  static const cloudinaryApiSecret = 'your_api_secret';
+}
+```
 
-**Android:**
+### 5. Run
+```bash
+flutter run               # auto device
+flutter run -d chrome     # web (if enabled)
+flutter run -d <device>   # specific emulator/phone
+```
+
+### 6. Production Builds
 ```bash
 flutter build apk --release
-# or
 flutter build appbundle --release
-```
-
-**iOS:**
-```bash
 flutter build ios --release
 ```
 
-### Generating App Icons
+---
 
-The app uses `flutter_launcher_icons` for icon generation:
+## 🔬 Quality Assurance
 
-```bash
-flutter pub run flutter_launcher_icons
-```
+| Area | Command | Notes |
+| --- | --- | --- |
+| Static analysis | `flutter analyze` | Lint clean before PRs |
+| Unit / widget tests | `flutter test` | Expand coverage for regressions |
+| Integration tests | `flutter test integration_test` | Optional, not yet scripted |
+| Formatting | `dart format .` | Enforced in CI/CD flow |
+
+**Manual QA checklist**
+- [ ] Login → logout → login flow without app restart delays
+- [ ] Add/Edit/Delete transaction while offline then reconnect
+- [ ] Category creation prevents duplicates and clears state
+- [ ] Bill reminder fires at scheduled time (use test notification)
+- [ ] Profile photo persists after closing and reopening app
+- [ ] PDF report export from Reports tab
 
 ---
 
-## 🤝 Contributing
+## 🧭 Operational Playbook
 
-Contributions are welcome! Please follow these steps:
+### Troubleshooting
+| Scenario | Resolution |
+| --- | --- |
+| Login spinner never stops | Confirm Firebase credentials + internet. Check `login_screen.dart` for `_isLoading` states. |
+| Profile image reverts | Ensure Cloudinary credentials are set and device clock is correct (signature uses timestamp). |
+| Infinite loading dialogs | Use `ValueNotifier<bool>` pattern. Verify buttons disabled when `isLoading == true`. |
+| Firestore permission errors | Update security rules or confirm user UID matches document path. |
+| Gradle Java version warnings | Project targets Java 17. Re-run `flutter clean` if migrating from older SDK. |
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-### Code Style
-
-- Follow [Dart Style Guide](https://dart.dev/guides/language/effective-dart/style)
-- Run `dart format .` before committing
-- Ensure `flutter analyze` passes without errors
-
----
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+### Maintenance Tasks
+- Rotate Cloudinary credentials annually.
+- Review Firebase security rules quarterly.
+- Audit shared preferences & SQLite migrations before major releases.
+- Regenerate launcher icons after branding updates (`flutter pub run flutter_launcher_icons`).
 
 ---
 
-## 👤 Author
+## 🤝 Contribution Guidelines
 
-**Singason Simon**
+1. Fork repository and create feature branch (`git checkout -b feature/<name>`).
+2. Run `flutter analyze` and `flutter test`.
+3. Document UI/UX changes with screenshots in PR when possible.
+4. Submit pull request with clear description + testing notes.
 
-- GitHub: [@SingasonSimon](https://github.com/SingasonSimon)
-- Repository: [PFT](https://github.com/SingasonSimon/PFT)
+**Coding Standards**
+- Follow Effective Dart style guide.
+- Keep widgets small; prefer composition over inheritance.
+- Avoid synchronous long-running operations in UI thread; use async/await with proper error handling.
 
 ---
 
-## 🙏 Acknowledgments
+## 📄 License
 
-- Flutter team for the amazing framework
-- Firebase for backend services
-- All open-source package contributors
-- Material Design team for the design system
+MIT License – see [`LICENSE`](LICENSE) for full text.
+
+---
+
+## 👤 Maintainer
+
+**Singason Simon**  
+- GitHub: [@SingasonSimon](https://github.com/SingasonSimon)  
+- Project repo: [PFT](https://github.com/SingasonSimon/PFT)
+
+
+
+---
+
+## 🙏 Acknowledgements
+- Flutter & Dart teams for the core tooling.
+- Firebase team for the managed backend platform.
+- Community package authors (`fl_chart`, `pdf`, `flutter_local_notifications`, etc.).
 
 ---
 
 ## 📞 Support
 
-For support, questions, or feature requests:
-
-- 📧 Email: Contact via GitHub
-- 💬 WhatsApp: +254 713 561 800
-- 🐛 Issues: [GitHub Issues](https://github.com/SingasonSimon/PFT/issues)
+| Channel | Details |
+| --- | --- |
+| Issues | GitHub Issues tab |
+| Email | Reach via GitHub profile |
 
 ---
 
-## 🔮 Future Enhancements
+## 🚧 Roadmap
 
-- [ ] Multi-currency support with exchange rates
-- [ ] Budget planning and tracking
-- [ ] Recurring transaction templates
-- [ ] Data export (CSV, Excel)
-- [ ] Dark mode support
-- [ ] Biometric authentication
-- [ ] Widget support for quick transaction entry
-- [ ] Advanced analytics and insights
-- [ ] Goal setting and tracking
-- [ ] Receipt scanning with OCR
+- [ ] Budget planning module with alerts
+- [ ] Collaborative accounts / shared wallets
+- [ ] OCR-based receipt scanning
+- [ ] Expanded analytics (cashflow forecasting, savings goals)
+- [ ] Multi-currency with live FX rates
+- [ ] Homescreen widgets and quick actions
 
 ---
 
 <div align="center">
 
-**Made with ❤️ using Flutter**
-
-⭐ Star this repo if you find it helpful!
+**Crafted with care using Flutter.**  
+If this documentation helped you, kindly ⭐ the repository!
 
 </div>
