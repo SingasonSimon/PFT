@@ -358,108 +358,212 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final maxY = series
         .map((point) => point.income > point.expense ? point.income : point.expense)
         .fold<double>(0, (prev, value) => value > prev ? value : prev);
-    final effectiveMaxY = (maxY <= 0 ? 100.0 : math.max(maxY * 1.2, maxY + 50)).toDouble();
-    final yInterval = math.max(effectiveMaxY / 5, 1.0).toDouble();
-    final chartHeight = (240.0 + (series.length.clamp(0, 12) * 6.0)).clamp(240.0, 360.0);
+    final effectiveMaxY = (maxY <= 0 ? 1000.0 : math.max(maxY * 1.25, maxY + 100)).toDouble();
+    final yInterval = math.max(effectiveMaxY / 6, 100.0).toDouble();
+    final chartHeight = 320.0;
+
+    // Calculate statistics
+    final totalIncome = series.fold<double>(0, (sum, point) => sum + point.income);
+    final totalExpenses = series.fold<double>(0, (sum, point) => sum + point.expense);
+    final avgIncome = totalIncome / series.length;
+    final avgExpenses = totalExpenses / series.length;
+    final netFlow = totalIncome - totalExpenses;
 
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Cash Flow Trend',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+      elevation: 3,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white,
+              Colors.grey.shade50,
+            ],
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with stats
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF4CAF50).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.trending_up,
+                                color: Color(0xFF4CAF50),
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Cash Flow Analysis',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Detailed financial performance tracking',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Track earnings vs spending over time',
-                      style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4CAF50).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFF4CAF50).withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      _selectedTimeFilter.capitalize(),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF4CAF50),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              
+              // Statistics Row
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildStatItem(
+                        'Total Income',
+                        'KSh ${compactFormatter.format(totalIncome)}',
+                        const Color(0xFF4CAF50),
+                        Icons.arrow_downward,
+                      ),
+                    ),
+                    Container(width: 1, height: 40, color: Colors.grey.shade300),
+                    Expanded(
+                      child: _buildStatItem(
+                        'Total Expenses',
+                        'KSh ${compactFormatter.format(totalExpenses)}',
+                        const Color(0xFFE53935),
+                        Icons.arrow_upward,
+                      ),
+                    ),
+                    Container(width: 1, height: 40, color: Colors.grey.shade300),
+                    Expanded(
+                      child: _buildStatItem(
+                        'Net Flow',
+                        'KSh ${compactFormatter.format(netFlow)}',
+                        netFlow >= 0 ? const Color(0xFF4CAF50) : const Color(0xFFE53935),
+                        Icons.account_balance_wallet,
+                      ),
                     ),
                   ],
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    _selectedTimeFilter.capitalize(),
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            series.isEmpty
-                ? SizedBox(
-                    height: chartHeight,
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.show_chart, size: 48, color: Colors.grey[400]),
-                          const SizedBox(height: 12),
-                          Text(
-                            'No data available for this period',
-                            style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                          ),
-                        ],
+              ),
+              const SizedBox(height: 24),
+              series.isEmpty
+                  ? SizedBox(
+                      height: chartHeight,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.show_chart, size: 48, color: Colors.grey[400]),
+                            const SizedBox(height: 12),
+                            Text(
+                              'No data available for this period',
+                              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  )
-                : SizedBox(
-                    height: chartHeight,
-                    child: Builder(builder: (_) {
-                      final incomeSpots = [
-                        for (int i = 0; i < series.length; i++)
-                          FlSpot(i.toDouble(), series[i].income),
-                      ];
-                      final expenseSpots = [
-                        for (int i = 0; i < series.length; i++)
-                          FlSpot(i.toDouble(), series[i].expense),
-                      ];
+                    )
+                  : Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade200, width: 1.5),
+                      ),
+                      child: SizedBox(
+                        height: chartHeight,
+                        child: Builder(builder: (_) {
+                    final incomeSpots = [
+                      for (int i = 0; i < series.length; i++)
+                        FlSpot(i.toDouble(), series[i].income),
+                    ];
+                    final expenseSpots = [
+                      for (int i = 0; i < series.length; i++)
+                        FlSpot(i.toDouble(), series[i].expense),
+                    ];
 
-                      if (incomeSpots.length == 1) {
-                        incomeSpots.add(FlSpot(incomeSpots.first.x + 0.1, incomeSpots.first.y));
-                      }
-                      if (expenseSpots.length == 1) {
-                        expenseSpots
-                            .add(FlSpot(expenseSpots.first.x + 0.1, expenseSpots.first.y));
-                      }
+                    if (incomeSpots.length == 1) {
+                      incomeSpots.add(FlSpot(incomeSpots.first.x + 0.1, incomeSpots.first.y));
+                    }
+                    if (expenseSpots.length == 1) {
+                      expenseSpots.add(FlSpot(expenseSpots.first.x + 0.1, expenseSpots.first.y));
+                    }
 
-                      return LineChart(
-                        LineChartData(
+                    return LineChart(
+                      LineChartData(
                         minY: 0,
                         maxY: effectiveMaxY,
                         baselineY: 0,
+                        clipData: const FlClipData.all(),
                         titlesData: FlTitlesData(
                           bottomTitles: AxisTitles(
                             sideTitles: SideTitles(
                               showTitles: true,
-                              reservedSize: 40,
-                              interval: series.length > 7 ? (series.length / 7).ceil().toDouble() : 1,
+                              reservedSize: 45,
+                              interval: series.length > 8 ? (series.length / 8).ceil().toDouble() : 1,
                               getTitlesWidget: (value, meta) {
                                 final index = value.toInt();
                                 if (index < 0 || index >= series.length) return const SizedBox();
                                 return Padding(
-                                  padding: const EdgeInsets.only(top: 8.0),
+                                  padding: const EdgeInsets.only(top: 10.0),
                                   child: Text(
                                     series[index].label,
                                     style: const TextStyle(
-                                      fontSize: 11,
+                                      fontSize: 10,
                                       fontWeight: FontWeight.w600,
                                       color: Colors.black87,
+                                      letterSpacing: 0.3,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -471,19 +575,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           leftTitles: AxisTitles(
                             sideTitles: SideTitles(
                               showTitles: true,
-                              reservedSize: 60,
+                              reservedSize: 70,
                               interval: yInterval,
-                              getTitlesWidget: (value, meta) => Padding(
-                                padding: const EdgeInsets.only(right: 8.0),
-                                child: Text(
-                                  compactFormatter.format(value),
-                                  style: TextStyle(
-                                    color: Colors.grey[700],
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 11,
+                              getTitlesWidget: (value, meta) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 10.0),
+                                  child: Text(
+                                    compactFormatter.format(value),
+                                    style: TextStyle(
+                                      color: Colors.grey[800],
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 10,
+                                      letterSpacing: 0.2,
+                                    ),
                                   ),
-                                ),
-                              ),
+                                );
+                              },
                             ),
                           ),
                           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -491,38 +598,45 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         ),
                         gridData: FlGridData(
                           show: true,
-                          drawVerticalLine: false,
+                          drawVerticalLine: true,
                           horizontalInterval: yInterval,
+                          verticalInterval: series.length > 8 ? (series.length / 8).ceil().toDouble() : 1,
                           getDrawingHorizontalLine: (value) => FlLine(
                             color: Colors.grey.shade300,
                             strokeWidth: 1,
-                            dashArray: [5, 5],
+                            dashArray: [4, 4],
+                          ),
+                          getDrawingVerticalLine: (value) => FlLine(
+                            color: Colors.grey.shade200,
+                            strokeWidth: 0.5,
+                            dashArray: [2, 4],
                           ),
                         ),
                         borderData: FlBorderData(
                           show: true,
                           border: Border(
-                            left: BorderSide(color: Colors.grey.shade400, width: 2),
-                            bottom: BorderSide(color: Colors.grey.shade400, width: 2),
+                            left: BorderSide(color: Colors.grey.shade500, width: 2.5),
+                            bottom: BorderSide(color: Colors.grey.shade500, width: 2.5),
                             top: BorderSide.none,
                             right: BorderSide.none,
                           ),
                         ),
-                          lineBarsData: [
-                            LineChartBarData(
-                              spots: incomeSpots,
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: incomeSpots,
                             isCurved: true,
+                            curveSmoothness: 0.35,
                             color: const Color(0xFF4CAF50),
-                            barWidth: 4,
+                            barWidth: 3.5,
                             isStrokeCapRound: true,
                             dotData: FlDotData(
                               show: true,
                               getDotPainter: (spot, percent, barData, index) =>
                                   FlDotCirclePainter(
-                                radius: 5,
-                                color: const Color(0xFF4CAF50),
-                                strokeWidth: 2,
-                                strokeColor: Colors.white,
+                                radius: 4.5,
+                                color: Colors.white,
+                                strokeWidth: 3,
+                                strokeColor: const Color(0xFF4CAF50),
                               ),
                             ),
                             belowBarData: BarAreaData(
@@ -531,26 +645,33 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                                 colors: [
-                                  const Color(0xFF4CAF50).withOpacity(0.3),
-                                  const Color(0xFF4CAF50).withOpacity(0.05),
+                                  const Color(0xFF4CAF50).withOpacity(0.4),
+                                  const Color(0xFF4CAF50).withOpacity(0.08),
                                 ],
+                                stops: const [0.0, 1.0],
                               ),
                             ),
+                            shadow: Shadow(
+                              color: const Color(0xFF4CAF50).withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
                             ),
-                            LineChartBarData(
-                              spots: expenseSpots,
+                          ),
+                          LineChartBarData(
+                            spots: expenseSpots,
                             isCurved: true,
+                            curveSmoothness: 0.35,
                             color: const Color(0xFFE53935),
-                            barWidth: 4,
+                            barWidth: 3.5,
                             isStrokeCapRound: true,
                             dotData: FlDotData(
                               show: true,
                               getDotPainter: (spot, percent, barData, index) =>
                                   FlDotCirclePainter(
-                                radius: 5,
-                                color: const Color(0xFFE53935),
-                                strokeWidth: 2,
-                                strokeColor: Colors.white,
+                                radius: 4.5,
+                                color: Colors.white,
+                                strokeWidth: 3,
+                                strokeColor: const Color(0xFFE53935),
                               ),
                             ),
                             belowBarData: BarAreaData(
@@ -559,27 +680,82 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                                 colors: [
-                                  const Color(0xFFE53935).withOpacity(0.3),
-                                  const Color(0xFFE53935).withOpacity(0.05),
+                                  const Color(0xFFE53935).withOpacity(0.4),
+                                  const Color(0xFFE53935).withOpacity(0.08),
                                 ],
+                                stops: const [0.0, 1.0],
                               ),
                             ),
+                            shadow: Shadow(
+                              color: const Color(0xFFE53935).withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
                             ),
-                          ],
+                          ),
+                        ],
+                        lineTouchData: LineTouchData(
+                          touchTooltipData: LineTouchTooltipData(
+                            getTooltipItems: (List<LineBarSpot> touchedSpots) {
+                              return touchedSpots.map((LineBarSpot touchedSpot) {
+                                final textStyle = TextStyle(
+                                  color: touchedSpot.bar.color,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                );
+                                return LineTooltipItem(
+                                  '${touchedSpot.barIndex == 0 ? 'Income' : 'Expense'}: KSh ${compactFormatter.format(touchedSpot.y)}',
+                                  textStyle,
+                                );
+                              }).toList();
+                            },
+                          ),
+                          handleBuiltInTouches: true,
+                          touchSpotThreshold: 20,
                         ),
-                      );
-                    }),
-                  ),
-            const SizedBox(height: 16),
-            if (series.isNotEmpty)
-              Row(
-                children: [
-                  _buildLegendItem('Income', const Color(0xFF4CAF50)),
-                  const SizedBox(width: 16),
-                  _buildLegendItem('Expenses', const Color(0xFFE53935)),
-                ],
+                      ),
+                    );
+                  }),
+                ),
               ),
-          ],
+              const SizedBox(height: 20),
+              
+              // Detailed Legend with averages
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Expanded(
+                          child: _buildDetailedLegendItem(
+                            'Income',
+                            'KSh ${compactFormatter.format(avgIncome)} avg',
+                            const Color(0xFF4CAF50),
+                            Icons.trending_up,
+                          ),
+                        ),
+                        Container(width: 1, height: 50, color: Colors.grey.shade300),
+                        Expanded(
+                          child: _buildDetailedLegendItem(
+                            'Expenses',
+                            'KSh ${compactFormatter.format(avgExpenses)} avg',
+                            const Color(0xFFE53935),
+                            Icons.trending_down,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -811,6 +987,92 @@ class _ReportsScreenState extends State<ReportsScreen> {
         ),
         const SizedBox(width: 6),
         Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, Color color, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailedLegendItem(String label, String subtitle, Color color, IconData icon) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(3),
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.3),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 14, color: color),
+                const SizedBox(width: 4),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
