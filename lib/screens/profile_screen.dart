@@ -160,10 +160,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (result != null && result.isNotEmpty && currentUser != null) {
       try {
         await currentUser!.updateDisplayName(result.trim());
-        if (mounted) {
+                if (mounted) {
           SnackbarHelper.showSuccess(context, 'Name updated successfully!');
-          setState(() {});
-        }
+                  setState(() {});
+                }
       } catch (e) {
         if (mounted) {
           SnackbarHelper.showError(context, 'Failed to update name');
@@ -225,7 +225,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (confirm == true) {
       setState(() => _isLoggingOut = true);
       try {
-        await _auth.signOut();
+      await _auth.signOut();
       } catch (e) {
         if (mounted) {
           setState(() => _isLoggingOut = false);
@@ -258,10 +258,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       title: 'Frequently Asked Questions',
       content: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
-          children: [
+            children: [
             _buildFaqItem(
               'How do I add a transaction?',
               'Tap the "+" button on the home screen, fill in the details, and tap "Save Transaction".',
@@ -291,12 +291,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               'How do I change my currency?',
               'Go to Settings > Currency and select your preferred currency from the dropdown.',
             ),
-          ],
+            ],
+          ),
         ),
-      ),
-      actions: [
+        actions: [
         ElevatedButton(
-          onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(context).pop(),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF4CAF50),
             foregroundColor: Colors.white,
@@ -306,8 +306,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           child: const Text('Close', style: TextStyle(fontWeight: FontWeight.w600)),
-        ),
-      ],
+          ),
+        ],
     );
   }
 
@@ -369,16 +369,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       stream: _auth.userChanges(),
       builder: (context, userSnapshot) {
         final user = userSnapshot.data ?? currentUser;
-        
-        return Scaffold(
+
+    return Scaffold(
           backgroundColor: Colors.white,
-          body: SafeArea(
+      body: SafeArea(
             child: Column(
-              children: [
+          children: [
                 // Profile Header
                 if (user != null)
-                  Container(
-                    width: double.infinity,
+              Container(
+                width: double.infinity,
                     padding: const EdgeInsets.all(24.0),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -391,13 +391,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     child: Column(
-                      children: [
-                        GestureDetector(
-                          onTap: _pickAndUploadImage,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              CircleAvatar(
+                  children: [
+                    GestureDetector(
+                      onTap: _pickAndUploadImage,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          CircleAvatar(
                                 radius: 50,
                                 backgroundColor: const Color(0xFF4CAF50).withOpacity(0.1),
                                 backgroundImage: (user.photoURL != null && user.photoURL!.isNotEmpty)
@@ -405,11 +405,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         '${user.photoURL}?t=${DateTime.now().millisecondsSinceEpoch}',
                                         headers: {'Cache-Control': 'no-cache'},
                                       )
-                                    : null,
+                                : null,
                                 child: (user.photoURL == null || user.photoURL!.isEmpty)
                                     ? const Icon(Icons.person, size: 50, color: Color(0xFF4CAF50))
-                                    : null,
-                              ),
+                                : null,
+                          ),
                           if (_isUploading)
                             const CircularProgressIndicator(
                               strokeWidth: 3,
@@ -421,22 +421,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Flexible(
-                          child: Text(
+                            children: [
+                              Flexible(
+                                child: Text(
                             user.displayName ?? 'User',
                             style: const TextStyle(
                               fontSize: 24,
-                              fontWeight: FontWeight.bold,
+                                        fontWeight: FontWeight.bold,
                               color: Colors.black87,
-                            ),
+                                      ),
                             textAlign: TextAlign.center,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                         const SizedBox(width: 8),
                         GestureDetector(
-                          onTap: _showUpdateNameDialog,
+                                onTap: _showUpdateNameDialog,
                           child: Container(
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
@@ -448,17 +448,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               size: 18,
                               color: Color(0xFF4CAF50),
                             ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
                     const SizedBox(height: 8),
-                    Text(
+                          Text(
                       user.email ?? 'No email',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey[600],
-                      ),
+                                ),
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
                       textAlign: TextAlign.center,
@@ -480,49 +480,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _buildSettingTile(
                         icon: Icons.lock_outline,
                         title: 'Passcode Lock',
-                        trailing: Switch(
-                          value: _isPasscodeEnabled,
+              trailing: Switch(
+                value: _isPasscodeEnabled,
                           activeColor: const Color(0xFF4CAF50),
-                          onChanged: (value) async {
-                            final prefs = await SharedPreferences.getInstance();
-                            if (value) {
-                              final success = await Navigator.of(context).push<bool>(
-                                  MaterialPageRoute(
-                                      builder: (context) =>
-                                          const PasscodeScreen(isSettingPasscode: true)));
-                              if (success == true) {
-                                setState(() => _isPasscodeEnabled = true);
-                              }
-                            } else {
-                              final success = await Navigator.of(context).push<bool>(
-                                  MaterialPageRoute(
-                                      builder: (context) => const PasscodeScreen(
-                                          isSettingPasscode: false)));
-                              if (success == true) {
-                                await prefs.remove('passcode');
-                                setState(() => _isPasscodeEnabled = false);
-                              }
-                            }
-                          },
-                        ),
-                      ),
+                onChanged: (value) async {
+                  final prefs = await SharedPreferences.getInstance();
+                  if (value) {
+                    final success = await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(
+                            builder: (context) =>
+                                const PasscodeScreen(isSettingPasscode: true)));
+                    if (success == true) {
+                      setState(() => _isPasscodeEnabled = true);
+                    }
+                  } else {
+                    final success = await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(
+                            builder: (context) => const PasscodeScreen(
+                                isSettingPasscode: false)));
+                    if (success == true) {
+                      await prefs.remove('passcode');
+                      setState(() => _isPasscodeEnabled = false);
+                    }
+                  }
+                },
+              ),
+            ),
                       if (_isPasscodeEnabled) ...[
                         const Divider(height: 1),
                         _buildSettingTile(
                           icon: Icons.phonelink_lock,
                           title: 'Change Passcode',
-                          onTap: () async {
-                            final verified = await Navigator.of(context).push<bool>(
-                                MaterialPageRoute(
-                                    builder: (context) =>
-                                        const PasscodeScreen(isSettingPasscode: false)));
-                            if (verified == true) {
-                              await Navigator.of(context).push<bool>(MaterialPageRoute(
-                                  builder: (context) =>
-                                      const PasscodeScreen(isSettingPasscode: true)));
-                            }
-                          },
-                        ),
+                onTap: () async {
+                  final verified = await Navigator.of(context).push<bool>(
+                      MaterialPageRoute(
+                          builder: (context) =>
+                              const PasscodeScreen(isSettingPasscode: false)));
+                  if (verified == true) {
+                    await Navigator.of(context).push<bool>(MaterialPageRoute(
+                        builder: (context) =>
+                            const PasscodeScreen(isSettingPasscode: true)));
+                  }
+                },
+              ),
                       ],
                       const Divider(height: 1),
                       _buildSettingTile(
@@ -535,11 +535,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: DropdownButton<String>(
-                            value: _selectedCurrency,
+                value: _selectedCurrency,
                             underline: const SizedBox(),
-                            items: <String>['KSh', 'USD', 'EUR', 'GBP']
-                                .map<DropdownMenuItem<String>>((String value) =>
-                                    DropdownMenuItem<String>(
+                items: <String>['KSh', 'USD', 'EUR', 'GBP']
+                    .map<DropdownMenuItem<String>>((String value) =>
+                        DropdownMenuItem<String>(
                                         value: value,
                                         child: Text(
                                           value,
@@ -548,15 +548,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             color: Color(0xFF4CAF50),
                                           ),
                                         )))
-                                .toList(),
-                            onChanged: (String? newValue) {
-                              if (newValue != null) {
-                                _saveCurrencyPreference(newValue);
+                    .toList(),
+                onChanged: (String? newValue) {
+                  if (newValue != null) {
+                    _saveCurrencyPreference(newValue);
                                 SnackbarHelper.showSuccess(context, 'Currency updated!');
-                              }
-                            },
-                          ),
-                        ),
+                  }
+                },
+              ),
+            ),
                       ),
                     ],
                   ),
@@ -570,16 +570,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _buildSettingTile(
                         icon: Icons.password,
                         title: 'Change Password',
-                        onTap: _sendPasswordResetEmail,
-                      ),
+              onTap: _sendPasswordResetEmail,
+            ),
                       const Divider(height: 1),
                       _buildSettingTile(
                         icon: Icons.delete_forever,
                         title: 'Delete Account',
                         titleColor: Colors.red,
                         iconColor: Colors.red,
-                        onTap: _deleteAccount,
-                      ),
+              onTap: _deleteAccount,
+            ),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -593,8 +593,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         icon: Icons.cloud_download_outlined,
                         title: 'Restore from Cloud',
                         subtitle: 'Download your backup on a new device',
-                        trailing: _isRestoring
-                            ? const SizedBox(
+              trailing: _isRestoring
+                  ? const SizedBox(
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
@@ -602,8 +602,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   color: Color(0xFF4CAF50),
                                 ))
                             : const Icon(Icons.chevron_right, color: Colors.grey),
-                        onTap: _isRestoring ? null : _handleRestore,
-                      ),
+              onTap: _isRestoring ? null : _handleRestore,
+            ),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -616,14 +616,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _buildSettingTile(
                         icon: Icons.question_answer_outlined,
                         title: 'FAQ',
-                        onTap: _showFaqDialog,
-                      ),
+              onTap: _showFaqDialog,
+            ),
                       const Divider(height: 1),
                       _buildSettingTile(
                         icon: Icons.support_agent,
                         title: 'Contact via WhatsApp',
-                        onTap: _launchWhatsApp,
-                      ),
+              onTap: _launchWhatsApp,
+            ),
                     ],
                   ),
                   const SizedBox(height: 32),
@@ -632,23 +632,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   SizedBox(
                     width: double.infinity,
                     height: 56,
-                    child: ElevatedButton.icon(
-                      onPressed: _isLoggingOut ? null : _logout,
+                  child: ElevatedButton.icon(
+                    onPressed: _isLoggingOut ? null : _logout,
                       icon: _isLoggingOut
-                          ? const SizedBox(
+                        ? const SizedBox(
                               width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
+                            height: 20,
+                            child: CircularProgressIndicator(
                                 strokeWidth: 2.5,
                                 color: Colors.white,
                               ))
                           : const Icon(Icons.logout),
                       label: Text(_isLoggingOut ? 'Logging out...' : 'Logout'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
                         disabledBackgroundColor: Colors.grey[300],
-                        shape: RoundedRectangleBorder(
+                      shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
                         elevation: 0,
@@ -662,10 +662,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
-        );
+    );
       },
     );
-  }
+}
 
   Widget _buildSectionHeader(String title) {
     return Padding(

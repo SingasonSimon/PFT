@@ -206,7 +206,7 @@ class DatabaseHelper {
     final newId = await db.insert('categories', map);
     
     if (newId > 0) {
-      try {
+        try {
         final docData = category.toMap()..['id'] = newId..['userId'] = userId;
         await _firestore
             .collection('users')

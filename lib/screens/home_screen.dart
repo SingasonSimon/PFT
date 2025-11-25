@@ -375,25 +375,25 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ? null
                                       : () async {
                                           if (currentUser == null || bill.id == null) return;
-
+                                    
                                           setState(() {
                                             _payingBills.add(bill.id!);
                                           });
 
                                           try {
-                                            final billTransaction = model.Transaction(
-                                              type: 'expense',
-                                              amount: bill.amount,
-                                              description: 'Paid bill: ${bill.name}',
-                                              date: DateTime.now().toIso8601String(),
+                                    final billTransaction = model.Transaction(
+                                      type: 'expense', 
+                                      amount: bill.amount, 
+                                      description: 'Paid bill: ${bill.name}', 
+                                      date: DateTime.now().toIso8601String(), 
                                               categoryId: await dbHelper.getOrCreateCategory(
                                                   'Bills', currentUser.uid, type: 'expense'),
-                                            );
+                                    );
                                             await dbHelper.addTransaction(
                                                 billTransaction, currentUser.uid);
 
-                                            if (bill.isRecurring) {
-                                              final nextDueDate = _calculateNextDueDate(bill);
+                                    if (bill.isRecurring) {
+                                      final nextDueDate = _calculateNextDueDate(bill);
                                               final updatedBill =
                                                   bill.copyWith(dueDate: nextDueDate);
                                               await dbHelper.updateBill(
@@ -402,16 +402,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 SnackbarHelper.showSuccess(context,
                                                     'Recurring bill "${bill.name}" paid. Next due date set.');
                                               }
-                                            } else {
+                                    } else {
                                               await dbHelper.deleteBill(
                                                   bill.id!, currentUser.uid);
                                               if (mounted) {
                                                 SnackbarHelper.showSuccess(context,
                                                     'Bill "${bill.name}" marked as paid.');
                                               }
-                                            }
-
-                                            _refreshData();
+                                    }
+                                    
+                                    _refreshData();
                                           } catch (e) {
                                             if (mounted) {
                                               SnackbarHelper.showError(
@@ -424,7 +424,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               });
                                             }
                                           }
-                                        },
+                                  },
                                 ),
                               ),
                             ],
@@ -526,15 +526,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   transaction.date.split('T')[0],
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
-                ),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+                  ),
               ),
               trailing: ConstrainedBox(
                 constraints: BoxConstraints(
                   maxWidth: MediaQuery.of(context).size.width * 0.3,
                 ),
                 child: Text(
-                  '$amountPrefix$_currencySymbol ${currencyFormatter.format(transaction.amount)}',
+                '$amountPrefix$_currencySymbol ${currencyFormatter.format(transaction.amount)}',
                   style: TextStyle(color: amountColor, fontWeight: FontWeight.bold, fontSize: 16),
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.end,
@@ -609,11 +609,11 @@ class SummaryCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '$currencySymbol ${currencyFormatter.format(amount)}',
+          '$currencySymbol ${currencyFormatter.format(amount)}',
                     style: TextStyle(
                       fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: color,
+                fontWeight: FontWeight.bold,
+                color: color,
                     ),
                   ),
                 ],

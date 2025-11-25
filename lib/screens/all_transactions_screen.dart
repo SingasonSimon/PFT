@@ -141,7 +141,7 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
                   ListTile(
                     title: Text(
                       _filterDateRange == null 
-                          ? 'Filter by Date' 
+                        ? 'Filter by Date' 
                           : '${DateFormat.yMd().format(_filterDateRange!.start)} - ${DateFormat.yMd().format(_filterDateRange!.end)}',
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
@@ -272,20 +272,20 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
                                   style: const TextStyle(fontWeight: FontWeight.w500),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                ),
+                                    ),
                                 subtitle: Padding(
                                   padding: const EdgeInsets.only(top: 4),
                                   child: Text(
                                     transaction.date.split('T')[0],
-                                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
-                                  ),
+                                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+                                    ),
                                 ),
                                 trailing: ConstrainedBox(
                                   constraints: BoxConstraints(
                                     maxWidth: MediaQuery.of(context).size.width * 0.3,
                                   ),
                                   child: Text(
-                                    '$amountPrefix${currencyFormatter.format(transaction.amount)}',
+                                  '$amountPrefix${currencyFormatter.format(transaction.amount)}',
                                     style: TextStyle(color: amountColor, fontWeight: FontWeight.bold, fontSize: 16),
                                     overflow: TextOverflow.ellipsis,
                                     textAlign: TextAlign.end,

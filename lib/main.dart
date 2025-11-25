@@ -18,7 +18,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   try {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   } catch (e) {
     debugPrint('Firebase initialization error: $e');
     // If Firebase fails to initialize, we'll still run the app but auth won't work
@@ -28,7 +28,7 @@ Future<void> main() async {
   tz.initializeTimeZones();
 
   try {
-    await notificationService.init();
+  await notificationService.init();
   } catch (e) {
     debugPrint('Notification service initialization error: $e');
   }

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -215,13 +217,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                  child: SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(value: 'week', label: Text('Week')),
-                      ButtonSegment(value: 'month', label: Text('Month')),
-                      ButtonSegment(value: 'year', label: Text('Year')),
-                    ],
-                    selected: {_selectedTimeFilter},
+                        child: SegmentedButton<String>(
+                          segments: const [
+                            ButtonSegment(value: 'week', label: Text('Week')),
+                            ButtonSegment(value: 'month', label: Text('Month')),
+                            ButtonSegment(value: 'year', label: Text('Year')),
+                          ],
+                          selected: {_selectedTimeFilter},
                     onSelectionChanged: (selection) {
                       setState(() => _selectedTimeFilter = selection.first);
                     },
@@ -237,14 +239,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             '$_currencySymbol ${NumberFormat('#,##0.##').format(summary.profitLoss)}',
                         subtitle: summary.tip,
                         accentColor: summary.color,
-                      ),
+                            ),
                       const SizedBox(height: 20),
                       _buildStatsGrid(summary),
                       const SizedBox(height: 20),
                       _buildCashFlowCard(cashFlowSeries),
-                      const SizedBox(height: 20),
+                        const SizedBox(height: 20),
                       _buildIncomeExpenseBarChart(barChartData),
-                      const SizedBox(height: 20),
+                        const SizedBox(height: 20),
                       _buildExpenseBreakdown(expenseData, categoryMap),
                     ],
                   ),
@@ -356,6 +358,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final maxY = series
         .map((point) => point.income > point.expense ? point.income : point.expense)
         .fold<double>(0, (prev, value) => value > prev ? value : prev);
+    final effectiveMaxY = (maxY <= 0 ? 100.0 : math.max(maxY * 1.2, maxY + 50)).toDouble();
+    final yInterval = math.max(effectiveMaxY / 5, 1.0).toDouble();
+    final chartHeight = (240.0 + (series.length.clamp(0, 12) * 6.0)).clamp(240.0, 360.0);
 
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -398,7 +403,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             const SizedBox(height: 24),
             series.isEmpty
                 ? SizedBox(
-                    height: 240,
+                    height: chartHeight,
                     child: Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -414,11 +419,29 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ),
                   )
                 : SizedBox(
-                    height: 280,
-                    child: LineChart(
-                      LineChartData(
+                    height: chartHeight,
+                    child: Builder(builder: (_) {
+                      final incomeSpots = [
+                        for (int i = 0; i < series.length; i++)
+                          FlSpot(i.toDouble(), series[i].income),
+                      ];
+                      final expenseSpots = [
+                        for (int i = 0; i < series.length; i++)
+                          FlSpot(i.toDouble(), series[i].expense),
+                      ];
+
+                      if (incomeSpots.length == 1) {
+                        incomeSpots.add(FlSpot(incomeSpots.first.x + 0.1, incomeSpots.first.y));
+                      }
+                      if (expenseSpots.length == 1) {
+                        expenseSpots
+                            .add(FlSpot(expenseSpots.first.x + 0.1, expenseSpots.first.y));
+                      }
+
+                      return LineChart(
+                        LineChartData(
                         minY: 0,
-                        maxY: maxY == 0 ? 1000 : (maxY * 1.3).clamp(100, double.infinity),
+                        maxY: effectiveMaxY,
                         baselineY: 0,
                         titlesData: FlTitlesData(
                           bottomTitles: AxisTitles(
@@ -449,7 +472,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             sideTitles: SideTitles(
                               showTitles: true,
                               reservedSize: 60,
-                              interval: maxY > 0 ? (maxY / 5).clamp(100, double.infinity) : 200,
+                              interval: yInterval,
                               getTitlesWidget: (value, meta) => Padding(
                                 padding: const EdgeInsets.only(right: 8.0),
                                 child: Text(
@@ -469,7 +492,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         gridData: FlGridData(
                           show: true,
                           drawVerticalLine: false,
-                          horizontalInterval: maxY > 0 ? (maxY / 5).clamp(100, double.infinity) : 200,
+                          horizontalInterval: yInterval,
                           getDrawingHorizontalLine: (value) => FlLine(
                             color: Colors.grey.shade300,
                             strokeWidth: 1,
@@ -485,12 +508,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             right: BorderSide.none,
                           ),
                         ),
-                        lineBarsData: [
-                          LineChartBarData(
-                            spots: [
-                              for (int i = 0; i < series.length; i++)
-                                FlSpot(i.toDouble(), series[i].income),
-                            ],
+                          lineBarsData: [
+                            LineChartBarData(
+                              spots: incomeSpots,
                             isCurved: true,
                             color: const Color(0xFF4CAF50),
                             barWidth: 4,
@@ -516,12 +536,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                 ],
                               ),
                             ),
-                          ),
-                          LineChartBarData(
-                            spots: [
-                              for (int i = 0; i < series.length; i++)
-                                FlSpot(i.toDouble(), series[i].expense),
-                            ],
+                            ),
+                            LineChartBarData(
+                              spots: expenseSpots,
                             isCurved: true,
                             color: const Color(0xFFE53935),
                             barWidth: 4,
@@ -547,10 +564,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                 ],
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
                   ),
             const SizedBox(height: 16),
             if (series.isNotEmpty)
@@ -587,14 +605,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ),
             const SizedBox(height: 20),
             SizedBox(
-              height: 220,
+              height: 240,
               child: BarChart(
                 BarChartData(
                   alignment: BarChartAlignment.spaceAround,
                   maxY: _getBarChartMaxY(barChartData),
+                  minY: 0,
                   barGroups: [
-                    _buildBarGroupData(0, barChartData['Income'] ?? 0, const Color(0xFF2E7D32)),
-                    _buildBarGroupData(1, barChartData['Expenses'] ?? 0, const Color(0xFFC62828)),
+                    _buildBarGroupData(0, barChartData['Income'] ?? 0, const Color(0xFF4CAF50), _getBarChartMaxY(barChartData)),
+                    _buildBarGroupData(1, barChartData['Expenses'] ?? 0, const Color(0xFFE53935), _getBarChartMaxY(barChartData)),
                   ],
                   titlesData: FlTitlesData(
                     bottomTitles: AxisTitles(
@@ -627,18 +646,26 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     show: true,
                     drawVerticalLine: false,
                     getDrawingHorizontalLine: (value) =>
-                        FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+                        FlLine(color: Colors.grey.shade300, strokeWidth: 1.5),
                   ),
-                  borderData: FlBorderData(show: false),
+                  borderData: FlBorderData(
+                    show: true,
+                    border: Border(
+                      left: BorderSide(color: Colors.grey.shade400, width: 2),
+                      bottom: BorderSide(color: Colors.grey.shade400, width: 2),
+                      top: BorderSide.none,
+                      right: BorderSide.none,
+                    ),
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 16),
             Row(
               children: [
-                _buildLegendItem('Income', const Color(0xFF2E7D32)),
+                _buildLegendItem('Income', const Color(0xFF4CAF50)),
                 const SizedBox(width: 16),
-                _buildLegendItem('Expenses', const Color(0xFFC62828)),
+                _buildLegendItem('Expenses', const Color(0xFFE53935)),
               ],
             ),
           ],
@@ -788,15 +815,23 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  BarChartGroupData _buildBarGroupData(int x, double y, Color color) {
+  BarChartGroupData _buildBarGroupData(int x, double y, Color color, double maxY) {
     return BarChartGroupData(
       x: x,
       barRods: [
         BarChartRodData(
           toY: y,
           color: color,
-          width: 38,
-          borderRadius: const BorderRadius.only(topLeft: Radius.circular(10), topRight: Radius.circular(10)),
+          width: 60,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(12),
+            topRight: Radius.circular(12),
+          ),
+          backDrawRodData: BackgroundBarChartRodData(
+            show: true,
+            toY: maxY,
+            color: Colors.grey.shade100,
+          ),
         ),
       ],
     );

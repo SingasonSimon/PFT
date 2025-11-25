@@ -47,15 +47,15 @@ class _AddBillScreenState extends State<AddBillScreen> {
     });
 
     try {
-      final dbHelper = DatabaseHelper();
-      final billName = _nameController.text.trim();
+        final dbHelper = DatabaseHelper();
+        final billName = _nameController.text.trim();
 
-      // Check for duplicate bill names
-      final existingBills = await dbHelper.getBills(_currentUser.uid);
+        // Check for duplicate bill names
+        final existingBills = await dbHelper.getBills(_currentUser.uid);
       final isDuplicate = existingBills.any(
           (bill) => bill.name.toLowerCase() == billName.toLowerCase());
 
-      if (isDuplicate) {
+        if (isDuplicate) {
         if (mounted) {
           SnackbarHelper.showError(
               context, 'A bill with this name already exists.');
@@ -63,27 +63,27 @@ class _AddBillScreenState extends State<AddBillScreen> {
             _isSaving = false;
           });
         }
-        return;
-      }
+          return;
+        }
 
-      // UPDATED: Create a Bill object with the new recurring properties
-      final newBill = Bill(
-        name: billName,
-        amount: double.parse(_amountController.text),
-        dueDate: _selectedDate,
-        isRecurring: _isRecurring,
-        recurrenceType: _isRecurring ? _recurrenceType : null,
-        recurrenceValue: _isRecurring
+        // UPDATED: Create a Bill object with the new recurring properties
+        final newBill = Bill(
+          name: billName,
+          amount: double.parse(_amountController.text),
+          dueDate: _selectedDate,
+          isRecurring: _isRecurring,
+          recurrenceType: _isRecurring ? _recurrenceType : null,
+          recurrenceValue: _isRecurring
             ? (_recurrenceType == 'weekly'
                 ? _selectedDate.weekday
                 : _selectedDate.day)
-            : null,
-      );
+              : null,
+        );
 
-      final newBillId = await dbHelper.addBill(newBill, _currentUser.uid);
+        final newBillId = await dbHelper.addBill(newBill, _currentUser.uid);
 
-      // Schedule notification for the new bill
-      final notificationService = NotificationService();
+        // Schedule notification for the new bill
+        final notificationService = NotificationService();
       await notificationService
           .scheduleBillNotification(newBill.copyWith(id: newBillId));
 
@@ -99,7 +99,7 @@ class _AddBillScreenState extends State<AddBillScreen> {
       Navigator.of(context).pop(true);
     } catch (e) {
       debugPrint('--- ERROR SAVING BILL: $e ---');
-      if (mounted) {
+        if (mounted) {
         setState(() {
           _isSaving = false;
         });
@@ -147,14 +147,14 @@ class _AddBillScreenState extends State<AddBillScreen> {
       body: SafeArea(
         child: Form(
         key: _formKey,
-          child: ListView(
+        child: ListView(
             padding: const EdgeInsets.all(24.0),
-            children: [
+          children: [
               // Bill Name Field
               _buildSectionTitle('Bill Name'),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _nameController,
+            TextFormField(
+              controller: _nameController,
                 style: const TextStyle(color: Colors.black87, fontSize: 16),
                 decoration: InputDecoration(
                   hintText: 'e.g., Rent, Netflix, Electricity',
@@ -183,14 +183,14 @@ class _AddBillScreenState extends State<AddBillScreen> {
                 ),
                 validator: (value) =>
                     value == null || value.isEmpty ? 'Please enter a name' : null,
-              ),
+            ),
               const SizedBox(height: 32),
               
               // Amount Field
               _buildSectionTitle('Amount'),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _amountController,
+            TextFormField(
+              controller: _amountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 style: const TextStyle(
                   color: Colors.black87,
@@ -235,7 +235,7 @@ class _AddBillScreenState extends State<AddBillScreen> {
                     vertical: 20,
                   ),
                 ),
-                validator: (value) {
+              validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter an amount';
                   }
@@ -245,27 +245,27 @@ class _AddBillScreenState extends State<AddBillScreen> {
                   if (double.parse(value) <= 0) {
                     return 'Amount must be greater than 0';
                   }
-                  return null;
-                },
-              ),
+                 return null;
+              },
+            ),
               const SizedBox(height: 32),
               
               // Due Date Field
               _buildSectionTitle('Due Date'),
               const SizedBox(height: 12),
-              GestureDetector(
-                onTap: _pickDate,
-                child: AbsorbPointer(
+            GestureDetector(
+              onTap: _pickDate,
+              child: AbsorbPointer(
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.grey[50],
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: Colors.grey[300]!),
                     ),
-                    child: TextFormField(
-                      controller: TextEditingController(
+                child: TextFormField(
+                  controller: TextEditingController(
                         text: DateFormat('EEEE, MMMM d, y').format(_selectedDate),
-                      ),
+                  ),
                       style: const TextStyle(color: Colors.black87, fontSize: 16),
                       decoration: InputDecoration(
                         filled: true,
@@ -291,12 +291,12 @@ class _AddBillScreenState extends State<AddBillScreen> {
                           vertical: 16,
                         ),
                       ),
-                    ),
                   ),
                 ),
               ),
+            ),
               const SizedBox(height: 32),
-              
+
               // Recurring Bill Toggle
               Container(
                 padding: const EdgeInsets.all(16),
@@ -349,12 +349,12 @@ class _AddBillScreenState extends State<AddBillScreen> {
                       ),
                     ),
                     Switch(
-                      value: _isRecurring,
-                      onChanged: (bool value) {
-                        setState(() {
-                          _isRecurring = value;
-                        });
-                      },
+              value: _isRecurring,
+              onChanged: (bool value) {
+                setState(() {
+                  _isRecurring = value;
+                });
+              },
                       activeColor: const Color(0xFF4CAF50),
                     ),
                   ],
@@ -362,7 +362,7 @@ class _AddBillScreenState extends State<AddBillScreen> {
               ),
               
               // Frequency selector (only if recurring)
-              if (_isRecurring) ...[
+            if (_isRecurring) ...[
                 const SizedBox(height: 24),
                 _buildSectionTitle('Frequency'),
                 const SizedBox(height: 12),
@@ -385,8 +385,8 @@ class _AddBillScreenState extends State<AddBillScreen> {
                         horizontal: 16,
                         vertical: 16,
                       ),
-                    ),
-                    items: const [
+                ),
+                items: const [
                       DropdownMenuItem(
                         value: 'weekly',
                         child: Text('Weekly'),
@@ -395,18 +395,18 @@ class _AddBillScreenState extends State<AddBillScreen> {
                         value: 'monthly',
                         child: Text('Monthly'),
                       ),
-                    ],
-                    onChanged: (String? newValue) {
-                      if (newValue != null) {
-                        setState(() {
-                          _recurrenceType = newValue;
-                        });
-                      }
-                    },
-                  ),
+                ],
+                onChanged: (String? newValue) {
+                  if (newValue != null) {
+                    setState(() {
+                      _recurrenceType = newValue;
+                    });
+                  }
+                },
                 ),
-              ],
-              
+              ),
+            ],
+
               const SizedBox(height: 40),
               
               // Save Button
@@ -415,15 +415,15 @@ class _AddBillScreenState extends State<AddBillScreen> {
                 height: 56,
                 child: ElevatedButton(
                   onPressed: _isSaving ? null : _saveBill,
-                  style: ElevatedButton.styleFrom(
+              style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF4CAF50),
                     foregroundColor: Colors.white,
                     disabledBackgroundColor: Colors.grey[300],
-                    shape: RoundedRectangleBorder(
+                shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
-                    ),
+                ),
                     elevation: 0,
-                  ),
+              ),
                   child: _isSaving
                       ? const SizedBox(
                           height: 24,
@@ -442,8 +442,8 @@ class _AddBillScreenState extends State<AddBillScreen> {
                           ),
                         ),
                 ),
-              ),
-            ],
+            ),
+          ],
           ),
         ),
       ),
