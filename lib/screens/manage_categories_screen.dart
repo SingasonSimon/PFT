@@ -21,6 +21,7 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen>
   List<Category> _incomeCategories = [];
   bool _isLoading = true;
   bool _isDeleting = false;
+  Set<int> _deletingCategoryIds = {}; // Track which categories are being deleted
   IconData? _selectedIconForDialog;
   ValueNotifier<bool>? _dialogLoadingState;
 
@@ -475,7 +476,7 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen>
               children: [
                 IconButton(
                   icon: const Icon(Icons.edit_outlined, color: Colors.grey),
-                  onPressed: _isDeleting
+                  onPressed: _isDeleting || _deletingCategoryIds.contains(category.id)
                       ? null
                       : () => _showCategoryDialog(
                             category: category,
@@ -484,8 +485,17 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen>
                   tooltip: 'Edit Category',
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  onPressed: _isDeleting
+                  icon: _deletingCategoryIds.contains(category.id)
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.red,
+                          ),
+                        )
+                      : const Icon(Icons.delete_outline, color: Colors.red),
+                  onPressed: _isDeleting || _deletingCategoryIds.contains(category.id)
                       ? null
                       : () async {
                           final bool? confirm =
@@ -497,8 +507,10 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen>
                             confirmText: 'Delete',
                             confirmColor: Colors.red,
                     );
-                          if (confirm == true && currentUser != null) {
-                            setState(() => _isDeleting = true);
+                          if (confirm == true && currentUser != null && category.id != null) {
+                            setState(() {
+                              _deletingCategoryIds.add(category.id!);
+                            });
                             try {
                               await dbHelper.deleteCategory(
                                   category.id!, currentUser!.uid);
@@ -514,7 +526,9 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen>
                               }
                             } finally {
                               if (mounted) {
-                                setState(() => _isDeleting = false);
+                                setState(() {
+                                  _deletingCategoryIds.remove(category.id!);
+                                });
                               }
                             }
                     }

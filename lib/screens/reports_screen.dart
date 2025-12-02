@@ -515,245 +515,337 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       ),
                     )
                   : Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: Colors.grey.shade200, width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.03),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
                       child: SizedBox(
                         height: chartHeight,
                         child: Builder(builder: (_) {
-                    final incomeSpots = [
-                      for (int i = 0; i < series.length; i++)
-                        FlSpot(i.toDouble(), series[i].income),
-                    ];
-                    final expenseSpots = [
-                      for (int i = 0; i < series.length; i++)
-                        FlSpot(i.toDouble(), series[i].expense),
-                    ];
+                          // Income and Expenses as separate lines
+                          final incomeSpots = [
+                            for (int i = 0; i < series.length; i++)
+                              FlSpot(i.toDouble(), series[i].income),
+                          ];
+                          final expenseSpots = [
+                            for (int i = 0; i < series.length; i++)
+                              FlSpot(i.toDouble(), series[i].expense),
+                          ];
 
-                    if (incomeSpots.length == 1) {
-                      incomeSpots.add(FlSpot(incomeSpots.first.x + 0.1, incomeSpots.first.y));
-                    }
-                    if (expenseSpots.length == 1) {
-                      expenseSpots.add(FlSpot(expenseSpots.first.x + 0.1, expenseSpots.first.y));
-                    }
+                          // Use the original effectiveMaxY for scaling
+                          final adjustedYInterval = yInterval;
 
-                    return LineChart(
-                      LineChartData(
-                        minY: 0,
-                        maxY: effectiveMaxY,
-                        baselineY: 0,
-                        clipData: const FlClipData.all(),
-                        titlesData: FlTitlesData(
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 45,
-                              interval: series.length > 8 ? (series.length / 8).ceil().toDouble() : 1,
-                              getTitlesWidget: (value, meta) {
-                                final index = value.toInt();
-                                if (index < 0 || index >= series.length) return const SizedBox();
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 10.0),
-                                  child: Text(
-                                    series[index].label,
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.black87,
-                                      letterSpacing: 0.3,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                          return LineChart(
+                            LineChartData(
+                              minY: 0,
+                              maxY: effectiveMaxY,
+                              baselineY: 0,
+                              clipData: FlClipData.none(),
+                              titlesData: FlTitlesData(
+                                bottomTitles: AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true,
+                                    reservedSize: 45,
+                                    interval: series.length > 8
+                                        ? (series.length / 8).ceil().toDouble()
+                                        : 1,
+                                    getTitlesWidget: (value, meta) {
+                                      final index = value.toInt();
+                                      if (index < 0 || index >= series.length) {
+                                        return const SizedBox();
+                                      }
+                                      return Padding(
+                                        padding: const EdgeInsets.only(top: 10.0),
+                                        child: Text(
+                                          series[index].label,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.grey[700],
+                                            letterSpacing: 0.2,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      );
+                                    },
                                   ),
-                                );
-                              },
-                            ),
-                          ),
-                          leftTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 70,
-                              interval: yInterval,
-                              getTitlesWidget: (value, meta) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 10.0),
-                                  child: Text(
-                                    compactFormatter.format(value),
-                                    style: TextStyle(
-                                      color: Colors.grey[800],
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 10,
-                                      letterSpacing: 0.2,
+                                ),
+                                leftTitles: AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true,
+                                    reservedSize: 70,
+                                    interval: adjustedYInterval,
+                                    getTitlesWidget: (value, meta) {
+                                      if (value == 0) {
+                                        return const SizedBox();
+                                      }
+                                      return Padding(
+                                        padding: const EdgeInsets.only(right: 12.0),
+                                        child: Text(
+                                          '$_currencySymbol${compactFormatter.format(value)}',
+                                          style: TextStyle(
+                                            color: Colors.grey[700],
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 11,
+                                            letterSpacing: 0.1,
+                                          ),
+                                          textAlign: TextAlign.right,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                              ),
+                              gridData: FlGridData(
+                                show: true,
+                                drawVerticalLine: true,
+                                horizontalInterval: adjustedYInterval,
+                                verticalInterval:
+                                    series.length > 8 ? (series.length / 8).ceil().toDouble() : 1,
+                                getDrawingHorizontalLine: (value) {
+                                  if (value == 0) {
+                                    return FlLine(
+                                      color: Colors.grey.shade400,
+                                      strokeWidth: 2,
+                                      dashArray: null,
+                                    );
+                                  }
+                                  return FlLine(
+                                    color: Colors.grey.shade200,
+                                    strokeWidth: 1,
+                                    dashArray: [5, 5],
+                                  );
+                                },
+                                getDrawingVerticalLine: (value) => FlLine(
+                                  color: Colors.grey.shade100,
+                                  strokeWidth: 0.5,
+                                  dashArray: [3, 3],
+                                ),
+                              ),
+                              borderData: FlBorderData(
+                                show: true,
+                                border: Border(
+                                  left: BorderSide(color: Colors.grey.shade400, width: 2),
+                                  bottom: BorderSide(color: Colors.grey.shade400, width: 2),
+                                  top: BorderSide.none,
+                                  right: BorderSide.none,
+                                ),
+                              ),
+                              lineBarsData: [
+                                // Income line
+                                LineChartBarData(
+                                  spots: incomeSpots,
+                                  isCurved: true,
+                                  color: const Color(0xFF4CAF50),
+                                  barWidth: 4,
+                                  isStrokeCapRound: true,
+                                  dotData: FlDotData(
+                                    show: true,
+                                    getDotPainter: (spot, percent, barData, index) {
+                                      return FlDotCirclePainter(
+                                        radius: 8,
+                                        color: const Color(0xFF4CAF50),
+                                        strokeWidth: 4,
+                                        strokeColor: Colors.white,
+                                      );
+                                    },
+                                  ),
+                                  belowBarData: BarAreaData(
+                                    show: true,
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        const Color(0xFF4CAF50).withOpacity(0.2),
+                                        const Color(0xFF4CAF50).withOpacity(0.05),
+                                      ],
                                     ),
                                   ),
-                                );
-                              },
-                            ),
-                          ),
-                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        ),
-                        gridData: FlGridData(
-                          show: true,
-                          drawVerticalLine: true,
-                          horizontalInterval: yInterval,
-                          verticalInterval: series.length > 8 ? (series.length / 8).ceil().toDouble() : 1,
-                          getDrawingHorizontalLine: (value) => FlLine(
-                            color: Colors.grey.shade300,
-                            strokeWidth: 1,
-                            dashArray: [4, 4],
-                          ),
-                          getDrawingVerticalLine: (value) => FlLine(
-                            color: Colors.grey.shade200,
-                            strokeWidth: 0.5,
-                            dashArray: [2, 4],
-                          ),
-                        ),
-                        borderData: FlBorderData(
-                          show: true,
-                          border: Border(
-                            left: BorderSide(color: Colors.grey.shade500, width: 2.5),
-                            bottom: BorderSide(color: Colors.grey.shade500, width: 2.5),
-                            top: BorderSide.none,
-                            right: BorderSide.none,
-                          ),
-                        ),
-                        lineBarsData: [
-                          LineChartBarData(
-                            spots: incomeSpots,
-                            isCurved: true,
-                            curveSmoothness: 0.35,
-                            color: const Color(0xFF4CAF50),
-                            barWidth: 3.5,
-                            isStrokeCapRound: true,
-                            dotData: FlDotData(
-                              show: true,
-                              getDotPainter: (spot, percent, barData, index) =>
-                                  FlDotCirclePainter(
-                                radius: 4.5,
-                                color: Colors.white,
-                                strokeWidth: 3,
-                                strokeColor: const Color(0xFF4CAF50),
+                                  shadow: Shadow(
+                                    color: const Color(0xFF4CAF50).withOpacity(0.2),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ),
+                                // Expenses line
+                                LineChartBarData(
+                                  spots: expenseSpots,
+                                  isCurved: true,
+                                  color: const Color(0xFFE53935),
+                                  barWidth: 4,
+                                  isStrokeCapRound: true,
+                                  dotData: FlDotData(
+                                    show: true,
+                                    getDotPainter: (spot, percent, barData, index) {
+                                      return FlDotCirclePainter(
+                                        radius: 8,
+                                        color: const Color(0xFFE53935),
+                                        strokeWidth: 4,
+                                        strokeColor: Colors.white,
+                                      );
+                                    },
+                                  ),
+                                  belowBarData: BarAreaData(
+                                    show: true,
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        const Color(0xFFE53935).withOpacity(0.2),
+                                        const Color(0xFFE53935).withOpacity(0.05),
+                                      ],
+                                    ),
+                                  ),
+                                  shadow: Shadow(
+                                    color: const Color(0xFFE53935).withOpacity(0.2),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ),
+                              ],
+                              lineTouchData: LineTouchData(
+                                enabled: true,
+                                touchTooltipData: LineTouchTooltipData(
+                                  getTooltipColor: (touchedSpot) => Colors.grey[900]!,
+                                  tooltipRoundedRadius: 8,
+                                  tooltipPadding: const EdgeInsets.all(12),
+                                  tooltipMargin: 8,
+                                  getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
+                                    return touchedBarSpots.map((barSpot) {
+                                      final isIncome = barSpot.barIndex == 0;
+                                      final value = barSpot.y;
+                                      return LineTooltipItem(
+                                        '${isIncome ? "Income" : "Expenses"}\n$_currencySymbol ${compactFormatter.format(value)}',
+                                        const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      );
+                                    }).toList();
+                                  },
+                                ),
+                                getTouchedSpotIndicator: (LineChartBarData barData, List<int> indicators) {
+                                  return indicators.map((int index) {
+                                    return TouchedSpotIndicatorData(
+                                      FlLine(
+                                        color: barData.color!.withOpacity(0.5),
+                                        strokeWidth: 2,
+                                        dashArray: [4, 4],
+                                      ),
+                                      FlDotData(
+                                        getDotPainter: (spot, percent, barData, index) {
+                                          return FlDotCirclePainter(
+                                            radius: 8,
+                                            color: Colors.white,
+                                            strokeWidth: 4,
+                                            strokeColor: barData.color!,
+                                          );
+                                        },
+                                      ),
+                                    );
+                                  }).toList();
+                                },
                               ),
                             ),
-                            belowBarData: BarAreaData(
-                              show: true,
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  const Color(0xFF4CAF50).withOpacity(0.4),
-                                  const Color(0xFF4CAF50).withOpacity(0.08),
-                                ],
-                                stops: const [0.0, 1.0],
+                          );
+                        }),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    
+                    // Legend with Income and Expenses
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade200, width: 1),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Income legend
+                          Row(
+                            children: [
+                              Container(
+                                width: 16,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF4CAF50),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
                               ),
-                            ),
-                            shadow: Shadow(
-                              color: const Color(0xFF4CAF50).withOpacity(0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
+                              const SizedBox(width: 8),
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF4CAF50),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 2),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Income',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ],
                           ),
-                          LineChartBarData(
-                            spots: expenseSpots,
-                            isCurved: true,
-                            curveSmoothness: 0.35,
-                            color: const Color(0xFFE53935),
-                            barWidth: 3.5,
-                            isStrokeCapRound: true,
-                            dotData: FlDotData(
-                              show: true,
-                              getDotPainter: (spot, percent, barData, index) =>
-                                  FlDotCirclePainter(
-                                radius: 4.5,
-                                color: Colors.white,
-                                strokeWidth: 3,
-                                strokeColor: const Color(0xFFE53935),
+                          const SizedBox(width: 24),
+                          // Expenses legend
+                          Row(
+                            children: [
+                              Container(
+                                width: 16,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE53935),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
                               ),
-                            ),
-                            belowBarData: BarAreaData(
-                              show: true,
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  const Color(0xFFE53935).withOpacity(0.4),
-                                  const Color(0xFFE53935).withOpacity(0.08),
-                                ],
-                                stops: const [0.0, 1.0],
+                              const SizedBox(width: 8),
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE53935),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 2),
+                                ),
                               ),
-                            ),
-                            shadow: Shadow(
-                              color: const Color(0xFFE53935).withOpacity(0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Expenses',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ],
                           ),
                         ],
-                        lineTouchData: LineTouchData(
-                          touchTooltipData: LineTouchTooltipData(
-                            getTooltipItems: (List<LineBarSpot> touchedSpots) {
-                              return touchedSpots.map((LineBarSpot touchedSpot) {
-                                final textStyle = TextStyle(
-                                  color: touchedSpot.bar.color,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                );
-                                return LineTooltipItem(
-                                  '${touchedSpot.barIndex == 0 ? 'Income' : 'Expense'}: KSh ${compactFormatter.format(touchedSpot.y)}',
-                                  textStyle,
-                                );
-                              }).toList();
-                            },
-                          ),
-                          handleBuiltInTouches: true,
-                          touchSpotThreshold: 20,
-                        ),
                       ),
-                    );
-                  }),
-                ),
-              ),
-              const SizedBox(height: 20),
-              
-              // Detailed Legend with averages
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        Expanded(
-                          child: _buildDetailedLegendItem(
-                            'Income',
-                            'KSh ${compactFormatter.format(avgIncome)} avg',
-                            const Color(0xFF4CAF50),
-                            Icons.trending_up,
-                          ),
-                        ),
-                        Container(width: 1, height: 50, color: Colors.grey.shade300),
-                        Expanded(
-                          child: _buildDetailedLegendItem(
-                            'Expenses',
-                            'KSh ${compactFormatter.format(avgExpenses)} avg',
-                            const Color(0xFFE53935),
-                            Icons.trending_down,
-                          ),
-                        ),
-                      ],
                     ),
-                  ],
-                ),
-              ),
             ],
           ),
         ),
@@ -1030,48 +1122,48 @@ class _ReportsScreenState extends State<ReportsScreen> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Container(
-          width: 14,
-          height: 14,
+          width: 16,
+          height: 16,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(3),
+            borderRadius: BorderRadius.circular(4),
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(0.3),
-                blurRadius: 4,
+                color: color.withOpacity(0.4),
+                blurRadius: 6,
                 offset: const Offset(0, 2),
               ),
             ],
           ),
+          child: Icon(icon, size: 10, color: Colors.white),
         ),
-        const SizedBox(width: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 14, color: color),
-                const SizedBox(width: 4),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                  letterSpacing: 0.2,
                 ),
-              ],
-            ),
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
               ),
-            ),
-          ],
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
       ],
     );

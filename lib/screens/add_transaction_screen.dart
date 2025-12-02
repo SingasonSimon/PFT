@@ -58,11 +58,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           return;
         }
 
+        // Validate that the selected category still exists in the list
         final hasExistingSelection = _selectedCategoryId != null &&
             _categories.any((category) => category.id == _selectedCategoryId);
 
         if (!hasExistingSelection) {
-          _selectedCategoryId = _categories.first.id;
+          // Reset to first category or null if list is empty
+          _selectedCategoryId = _categories.isNotEmpty ? _categories.first.id : null;
         }
       });
     } catch (e) {
@@ -522,14 +524,21 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       );
     }
 
+    // Ensure selected value exists in the categories list
+    final validSelectedId = _selectedCategoryId != null && 
+        _categories.any((cat) => cat.id == _selectedCategoryId)
+        ? _selectedCategoryId
+        : null;
+
     return Container(
+      key: ValueKey('dropdown_${_transactionType}_${_categories.length}'),
       decoration: BoxDecoration(
         color: Colors.grey[50],
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey[300]!),
       ),
       child: DropdownButtonFormField<int>(
-        value: _selectedCategoryId,
+        value: validSelectedId,
         decoration: InputDecoration(
           filled: true,
           fillColor: Colors.transparent,
@@ -608,7 +617,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       ),
     );
 
-    if (updated == true || updated == null) {
+    // Always reload categories when returning from category management
+    // This ensures the dropdown has the latest data
+    if (mounted) {
       await _loadCategories();
     }
   }
