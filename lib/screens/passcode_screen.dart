@@ -31,6 +31,7 @@ class _PasscodeScreenState extends State<PasscodeScreen> with SingleTickerProvid
   bool _hasError = false;
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
+  bool _isDisposed = false;
 
   @override
   void initState() {
@@ -405,24 +406,37 @@ class _PasscodeScreenState extends State<PasscodeScreen> with SingleTickerProvid
 
   @override
   void dispose() {
+    _isDisposed = true;
+    // Clear controller before disposing to prevent any callbacks
+    _pinController.clear();
     _pinController.dispose();
     _shakeController.dispose();
     super.dispose();
   }
 
   void _onPinCompleted(String pin) async {
+    // Prevent multiple calls and check if disposed
+    if (!mounted || _isDisposed) return;
+    
     final prefs = await SharedPreferences.getInstance();
     final savedPin = prefs.getString('passcode');
+    
+    if (!mounted || _isDisposed) return;
+    
     final navigator = Navigator.of(context);
 
     // Set new passcode
     if (widget.isSettingPasscode) {
       if (savedPin != null && savedPin == pin) {
+        if (!mounted || _isDisposed) return;
         setState(() {
           _hasError = true;
           _pinToConfirm = null;
-          _pinController.clear();
         });
+        // Clear controller after state update
+        if (!_isDisposed) {
+          _pinController.clear();
+        }
         _updateTitles();
         _triggerShake();
         Fluttertoast.showToast(
@@ -434,27 +448,45 @@ class _PasscodeScreenState extends State<PasscodeScreen> with SingleTickerProvid
       }
 
       if (_pinToConfirm == null) {
+        if (!mounted || _isDisposed) return;
         setState(() {
           _pinToConfirm = pin;
           _hasError = false;
-          _pinController.clear();
         });
+        // Clear controller after state update
+        if (!_isDisposed) {
+          _pinController.clear();
+        }
         _updateTitles();
       } else {
         if (_pinToConfirm == pin) {
           await prefs.setString('passcode', pin);
+          if (!mounted || _isDisposed) return;
           Fluttertoast.showToast(
             msg: 'Passcode Set Successfully',
             backgroundColor: const Color(0xFF4CAF50),
             textColor: Colors.white,
           );
-          navigator.pop(true);
+          // Clear controller before navigation
+          if (!_isDisposed) {
+            _pinController.clear();
+          }
+          // Navigate after a small delay to ensure state is stable
+          Future.microtask(() {
+            if (mounted && !_isDisposed) {
+              navigator.pop(true);
+            }
+          });
         } else {
+          if (!mounted || _isDisposed) return;
           setState(() {
             _hasError = true;
             _pinToConfirm = null;
-            _pinController.clear();
           });
+          // Clear controller after state update
+          if (!_isDisposed) {
+            _pinController.clear();
+          }
           _updateTitles();
           _triggerShake();
           Fluttertoast.showToast(
@@ -468,21 +500,38 @@ class _PasscodeScreenState extends State<PasscodeScreen> with SingleTickerProvid
     // Verify existing passcode
     else {
       if (savedPin == pin) {
+        // Clear controller before navigation
+        if (!_isDisposed) {
+          _pinController.clear();
+        }
         // Check if this is an app unlock scenario
         if (widget.isAppUnlock) {
           // If yes, replace the current screen with the MainScreen
-          navigator.pushReplacement(
-            MaterialPageRoute(builder: (context) => const MainScreen()),
-          );
+          // Use Future.microtask to ensure state is stable before navigation
+          Future.microtask(() {
+            if (mounted && !_isDisposed) {
+              navigator.pushReplacement(
+                MaterialPageRoute(builder: (context) => const MainScreen()),
+              );
+            }
+          });
         } else {
           // If no (e.g., just verifying from settings), just pop back
-          navigator.pop(true);
+          Future.microtask(() {
+            if (mounted && !_isDisposed) {
+              navigator.pop(true);
+            }
+          });
         }
       } else {
+        if (!mounted || _isDisposed) return;
         setState(() {
           _hasError = true;
-          _pinController.clear();
         });
+        // Clear controller after state update
+        if (!_isDisposed) {
+          _pinController.clear();
+        }
         _triggerShake();
         Fluttertoast.showToast(
           msg: 'Incorrect Passcode',
@@ -491,7 +540,7 @@ class _PasscodeScreenState extends State<PasscodeScreen> with SingleTickerProvid
         );
         // Reset error state after a delay
         Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted) {
+          if (mounted && !_isDisposed) {
             setState(() {
               _hasError = false;
             });
@@ -527,11 +576,11 @@ class _PasscodeScreenState extends State<PasscodeScreen> with SingleTickerProvid
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            child: Padding(
+        child: Padding(
               padding: const EdgeInsets.all(32.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
                   // Icon Container with gradient background
                   Container(
                     width: 120,
@@ -556,8 +605,8 @@ class _PasscodeScreenState extends State<PasscodeScreen> with SingleTickerProvid
                   const SizedBox(height: 40),
                   
                   // Title
-                  Text(
-                    _title,
+              Text(
+                _title,
                     style: const TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
@@ -576,7 +625,7 @@ class _PasscodeScreenState extends State<PasscodeScreen> with SingleTickerProvid
                       color: Colors.grey[600],
                       height: 1.5,
                     ),
-                    textAlign: TextAlign.center,
+                textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 48),
                   
@@ -592,10 +641,10 @@ class _PasscodeScreenState extends State<PasscodeScreen> with SingleTickerProvid
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: PinCodeFields(
-                        controller: _pinController,
-                        length: 4,
-                        fieldBorderStyle: FieldBorderStyle.square,
-                        responsive: false,
+                controller: _pinController,
+                length: 4,
+                fieldBorderStyle: FieldBorderStyle.square,
+                responsive: false,
                         fieldHeight: 64.0,
                         fieldWidth: 64.0,
                         borderWidth: 2.5,
@@ -603,14 +652,14 @@ class _PasscodeScreenState extends State<PasscodeScreen> with SingleTickerProvid
                             ? Colors.red 
                             : const Color(0xFF4CAF50),
                         borderRadius: BorderRadius.circular(16.0),
-                        keyboardType: TextInputType.number,
-                        autoHideKeyboard: false,
-                        obscureText: true,
+                keyboardType: TextInputType.number,
+                autoHideKeyboard: false,
+                obscureText: true,
                         obscureCharacter: '●',
                         borderColor: _hasError 
                             ? Colors.red.shade300 
                             : Colors.grey.shade300,
-                        onComplete: _onPinCompleted,
+                onComplete: _onPinCompleted,
                       ),
                     ),
                   ),

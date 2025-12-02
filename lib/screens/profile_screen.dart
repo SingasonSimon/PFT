@@ -331,6 +331,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _logout() async {
+    if (!mounted) return;
+    
     final bool? confirm = await DialogHelper.showConfirmDialog(
       context: context,
       title: 'Confirm Logout',
@@ -339,15 +341,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       confirmColor: Colors.red,
     );
 
-    if (confirm == true) {
-      setState(() => _isLoggingOut = true);
-      try {
+    if (confirm != true || !mounted) return;
+    
+    setState(() => _isLoggingOut = true);
+    
+    try {
       await _auth.signOut();
-      } catch (e) {
-        if (mounted) {
-          setState(() => _isLoggingOut = false);
-          SnackbarHelper.showError(context, 'Failed to log out');
-        }
+      // After signOut, AuthGate's StreamBuilder will detect the auth state change
+      // and navigate to WelcomeScreen. The ProfileScreen will be disposed.
+      // Don't try to update state here as the widget will be disposed.
+    } catch (e) {
+      debugPrint('Logout error: $e');
+      // Only update state if logout failed and widget is still mounted
+      if (mounted) {
+        setState(() => _isLoggingOut = false);
+        SnackbarHelper.showError(context, 'Failed to log out: ${e.toString()}');
       }
     }
   }
@@ -487,10 +495,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (context, userSnapshot) {
         final user = userSnapshot.data ?? currentUser;
         
+        // If user is null (logged out), show loading as AuthGate will handle navigation
+        if (user == null) {
+          return const Scaffold(
+            backgroundColor: Colors.white,
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        
         // Preload image when user data changes
-        if (user?.photoURL != null && user!.photoURL!.isNotEmpty) {
+        if (user.photoURL != null && user.photoURL!.isNotEmpty) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            _preloadProfileImage();
+            if (mounted && currentUser != null) {
+              _preloadProfileImage();
+            }
           });
         }
 
@@ -500,7 +520,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
           children: [
                 // Profile Header
-                if (user != null)
               Container(
                 width: double.infinity,
                     padding: const EdgeInsets.all(24.0),
