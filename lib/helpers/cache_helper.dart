@@ -197,7 +197,7 @@ class CacheHelper {
       }
       
       // 3. Clear cacheable files from application documents directory
-      // Preserve important files like shared preferences and database files
+      // Preserve important files like shared preferences, database files, and Flutter assets
       try {
         final appDir = await getApplicationDocumentsDirectory();
         if (await appDir.exists()) {
@@ -205,12 +205,16 @@ class CacheHelper {
             try {
               if (entity is File) {
                 final path = entity.path.toLowerCase();
-                // Skip important files: database, shared preferences, and other user data
+                // Skip important files: database, shared preferences, Flutter assets, and other user data
                 if (path.endsWith('.db') || 
                     path.endsWith('.db-journal') || 
                     path.endsWith('.db-wal') ||
                     path.endsWith('.db-shm') ||
                     path.contains('shared_prefs') ||
+                    path.contains('flutter_assets') ||
+                    path.contains('kernel_blob') ||
+                    path.contains('vm_snapshot') ||
+                    path.contains('isolate_snapshot') ||
                     path.endsWith('.xml') ||
                     path.endsWith('.json')) {
                   continue;
@@ -218,6 +222,11 @@ class CacheHelper {
                 // Delete cacheable files (images, temp files, etc.)
                 await entity.delete();
               } else if (entity is Directory) {
+                final dirPath = entity.path.toLowerCase();
+                // Skip Flutter assets directory
+                if (dirPath.contains('flutter_assets')) {
+                  continue;
+                }
                 // Check if directory contains important files before deleting
                 bool hasImportantFiles = false;
                 try {
@@ -229,6 +238,10 @@ class CacheHelper {
                           subPath.endsWith('.db-wal') ||
                           subPath.endsWith('.db-shm') ||
                           subPath.contains('shared_prefs') ||
+                          subPath.contains('flutter_assets') ||
+                          subPath.contains('kernel_blob') ||
+                          subPath.contains('vm_snapshot') ||
+                          subPath.contains('isolate_snapshot') ||
                           subPath.endsWith('.xml') ||
                           subPath.endsWith('.json')) {
                         hasImportantFiles = true;
@@ -245,7 +258,8 @@ class CacheHelper {
                 }
               }
             } catch (e) {
-              debugPrint('Error deleting cache file from app dir ${entity.path}: $e');
+              // Silently skip errors for files that don't exist or can't be deleted
+              // (e.g., Flutter framework files)
             }
           }
         }
