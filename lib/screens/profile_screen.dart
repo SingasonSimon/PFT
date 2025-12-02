@@ -58,7 +58,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _pickAndUploadImage() async {
     final imagePicker = ImagePicker();
     final XFile? image = await imagePicker.pickImage(
-        source: ImageSource.gallery, imageQuality: 70);
+        source: ImageSource.gallery, imageQuality: 75); // Slightly higher quality but still optimized
 
     if (image == null || currentUser == null) return;
 
@@ -397,23 +397,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          CircleAvatar(
-                                radius: 50,
-                                backgroundColor: const Color(0xFF4CAF50).withOpacity(0.1),
-                                backgroundImage: (user.photoURL != null && user.photoURL!.isNotEmpty)
-                                    ? NetworkImage(
-                                        '${user.photoURL}?t=${DateTime.now().millisecondsSinceEpoch}',
-                                        headers: {'Cache-Control': 'no-cache'},
-                                      )
-                                : null,
-                                child: (user.photoURL == null || user.photoURL!.isEmpty)
-                                    ? const Icon(Icons.person, size: 50, color: Color(0xFF4CAF50))
-                                : null,
-                          ),
+                          _buildProfileAvatar(user),
                           if (_isUploading)
-                            const CircularProgressIndicator(
-                              strokeWidth: 3,
-                              color: Color(0xFF4CAF50),
+                            Container(
+                              width: 100,
+                              height: 100,
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.5),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const CircularProgressIndicator(
+                                strokeWidth: 3,
+                                color: Colors.white,
+                              ),
                             ),
                         ],
                       ),
@@ -691,6 +687,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: Column(
         children: children,
+      ),
+    );
+  }
+
+  Widget _buildProfileAvatar(User user) {
+    if (user.photoURL == null || user.photoURL!.isEmpty) {
+      return CircleAvatar(
+        radius: 50,
+        backgroundColor: const Color(0xFF4CAF50).withOpacity(0.1),
+        child: const Icon(Icons.person, size: 50, color: Color(0xFF4CAF50)),
+      );
+    }
+
+    // Optimize image URL with Cloudinary transformations for faster loading
+    String imageUrl = user.photoURL!;
+    // Add Cloudinary transformations if it's a Cloudinary URL
+    if (imageUrl.contains('cloudinary.com')) {
+      // Transform to smaller, optimized format: w_200,h_200,c_fill,q_auto,f_auto
+      // This loads faster and uses less bandwidth
+      if (!imageUrl.contains('/upload/')) {
+        // If URL doesn't have transformations, add them
+        imageUrl = imageUrl.replaceAll('/upload/', '/upload/w_200,h_200,c_fill,q_auto,f_auto/');
+      } else if (!imageUrl.contains('w_')) {
+        // Insert transformations before filename
+        final parts = imageUrl.split('/upload/');
+        if (parts.length == 2) {
+          imageUrl = '${parts[0]}/upload/w_200,h_200,c_fill,q_auto,f_auto/${parts[1]}';
+        }
+      }
+    }
+
+    return CircleAvatar(
+      radius: 50,
+      backgroundColor: const Color(0xFF4CAF50).withOpacity(0.1),
+      child: ClipOval(
+        child: Image.network(
+          imageUrl,
+          width: 100,
+          height: 100,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) {
+              return child;
+            }
+            return Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: const Color(0xFF4CAF50).withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded /
+                          loadingProgress.expectedTotalBytes!
+                      : null,
+                  color: const Color(0xFF4CAF50),
+                ),
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            return CircleAvatar(
+              radius: 50,
+              backgroundColor: const Color(0xFF4CAF50).withOpacity(0.1),
+              child: const Icon(Icons.person, size: 50, color: Color(0xFF4CAF50)),
+            );
+          },
+          cacheWidth: 200, // Cache optimized size
+          cacheHeight: 200,
+        ),
       ),
     );
   }
