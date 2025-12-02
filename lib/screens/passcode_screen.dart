@@ -89,170 +89,313 @@ class _PasscodeScreenState extends State<PasscodeScreen> with SingleTickerProvid
 
     if (confirm != true) return;
 
-    // Show password input dialog
+    // Show modern password input dialog
     final passwordController = TextEditingController();
     final passwordFormKey = GlobalKey<FormState>();
     bool isPasswordVisible = false;
     bool isVerifying = false;
+    String? errorText;
 
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
+      barrierColor: Colors.black54,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (context, setDialogState) => Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
           ),
-          title: const Text(
-            'Verify Identity',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Form(
-            key: passwordFormKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Enter your account password to reset the passcode',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: passwordController,
-                  obscureText: !isPasswordVisible,
-                  enabled: !isVerifying,
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    hintText: 'Enter your password',
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        isPasswordVisible
-                            ? Icons.visibility_off
-                            : Icons.visibility,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: passwordFormKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Icon with gradient background
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF4CAF50).withOpacity(0.2),
+                          const Color(0xFF4CAF50).withOpacity(0.1),
+                        ],
                       ),
-                      onPressed: () {
-                        setDialogState(() {
-                          isPasswordVisible = !isPasswordVisible;
-                        });
-                      },
                     ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                    child: const Icon(
+                      Icons.lock_outline_rounded,
+                      size: 40,
+                      color: Color(0xFF4CAF50),
                     ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your password';
-                    }
-                    return null;
-                  },
-                ),
-                if (isVerifying) ...[
-                  const SizedBox(height: 16),
-                  const CircularProgressIndicator(),
-                ],
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: isVerifying
-                  ? null
-                  : () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: isVerifying
-                  ? null
-                  : () async {
-                      if (!passwordFormKey.currentState!.validate()) {
-                        return;
+                  const SizedBox(height: 24),
+                  
+                  // Title
+                  const Text(
+                    'Verify Identity',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  // Subtitle
+                  Text(
+                    'Enter your account password to reset the passcode',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Password Field
+                  TextFormField(
+                    controller: passwordController,
+                    obscureText: !isPasswordVisible,
+                    enabled: !isVerifying,
+                    autofocus: true,
+                    style: const TextStyle(
+                      color: Colors.black87,
+                      fontSize: 16,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Enter your password',
+                      hintStyle: TextStyle(color: Colors.grey[400]),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                      prefixIcon: Container(
+                        margin: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4CAF50).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.lock_outline_rounded,
+                          color: Color(0xFF4CAF50),
+                          size: 20,
+                        ),
+                      ),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          isPasswordVisible
+                              ? Icons.visibility_off_rounded
+                              : Icons.visibility_rounded,
+                          color: Colors.grey[600],
+                        ),
+                        onPressed: isVerifying
+                            ? null
+                            : () {
+                                setDialogState(() {
+                                  isPasswordVisible = !isPasswordVisible;
+                                });
+                              },
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(
+                          color: Color(0xFF4CAF50),
+                          width: 2,
+                        ),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(
+                          color: Colors.red,
+                          width: 2,
+                        ),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(
+                          color: Colors.red,
+                          width: 2,
+                        ),
+                      ),
+                      errorText: errorText,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 18,
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Password is required';
                       }
-
-                      setDialogState(() {
-                        isVerifying = true;
-                      });
-
-                      try {
-                        // Re-authenticate user with password
-                        final credential = EmailAuthProvider.credential(
-                          email: user.email!,
-                          password: passwordController.text,
-                        );
-                        await user.reauthenticateWithCredential(credential);
-
-                        // Clear the passcode
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.remove('passcode');
-
-                        if (context.mounted) {
-                          Navigator.of(context).pop(true);
-                          Fluttertoast.showToast(
-                            msg: 'Passcode reset successfully. Please set a new passcode.',
-                            backgroundColor: const Color(0xFF4CAF50),
-                            textColor: Colors.white,
-                          );
-                          
-                          // Navigate to set new passcode
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (context) => const PasscodeScreen(
-                                isSettingPasscode: true,
-                              ),
-                            ),
-                          );
-                        }
-                      } on FirebaseAuthException catch (e) {
+                      return null;
+                    },
+                    onChanged: (value) {
+                      if (errorText != null) {
                         setDialogState(() {
-                          isVerifying = false;
+                          errorText = null;
                         });
-                        String errorMessage = 'Verification failed';
-                        if (e.code == 'wrong-password') {
-                          errorMessage = 'Incorrect password. Please try again.';
-                        } else if (e.code == 'too-many-requests') {
-                          errorMessage = 'Too many attempts. Please try again later.';
-                        } else if (e.code == 'network-request-failed') {
-                          errorMessage = 'Network error. Please check your connection.';
-                        }
-                        
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(errorMessage),
-                              backgroundColor: Colors.red,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        }
-                      } catch (e) {
-                        setDialogState(() {
-                          isVerifying = false;
-                        });
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Error: $e'),
-                              backgroundColor: Colors.red,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        }
                       }
                     },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4CAF50),
-                foregroundColor: Colors.white,
+                  ),
+                  
+                  if (isVerifying) ...[
+                    const SizedBox(height: 20),
+                    const CircularProgressIndicator(
+                      color: Color(0xFF4CAF50),
+                    ),
+                  ],
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: isVerifying
+                              ? null
+                              : () => Navigator.of(context).pop(false),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: isVerifying
+                              ? null
+                              : () async {
+                                  if (!passwordFormKey.currentState!.validate()) {
+                                    return;
+                                  }
+
+                                  setDialogState(() {
+                                    isVerifying = true;
+                                    errorText = null;
+                                  });
+
+                                  try {
+                                    // Re-authenticate user with password
+                                    final credential = EmailAuthProvider.credential(
+                                      email: user.email!,
+                                      password: passwordController.text,
+                                    );
+                                    await user.reauthenticateWithCredential(credential);
+
+                                    // Clear the passcode
+                                    final prefs = await SharedPreferences.getInstance();
+                                    await prefs.remove('passcode');
+
+                                    if (context.mounted) {
+                                      Navigator.of(context).pop(true);
+                                      Fluttertoast.showToast(
+                                        msg: 'Passcode reset successfully. Please set a new passcode.',
+                                        backgroundColor: const Color(0xFF4CAF50),
+                                        textColor: Colors.white,
+                                      );
+                                      
+                                      // Navigate to set new passcode
+                                      Navigator.of(context).pushReplacement(
+                                        MaterialPageRoute(
+                                          builder: (context) => const PasscodeScreen(
+                                            isSettingPasscode: true,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  } on FirebaseAuthException catch (e) {
+                                    setDialogState(() {
+                                      isVerifying = false;
+                                    });
+                                    String errorMessage = 'Verification failed';
+                                    if (e.code == 'wrong-password') {
+                                      errorMessage = 'Incorrect password. Please try again.';
+                                      setDialogState(() {
+                                        errorText = 'Incorrect password';
+                                      });
+                                    } else if (e.code == 'too-many-requests') {
+                                      errorMessage = 'Too many attempts. Please try again later.';
+                                    } else if (e.code == 'network-request-failed') {
+                                      errorMessage = 'Network error. Please check your connection.';
+                                    }
+                                    
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(errorMessage),
+                                          backgroundColor: Colors.red,
+                                          behavior: SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    setDialogState(() {
+                                      isVerifying = false;
+                                    });
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Error: $e'),
+                                          backgroundColor: Colors.red,
+                                          behavior: SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF4CAF50),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            'Verify',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              child: const Text('Verify'),
             ),
-          ],
+          ),
         ),
       ),
     );

@@ -50,6 +50,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadCacheSize() async {
+    if (mounted) {
+      setState(() {
+        _cacheSize = 'Calculating...';
+      });
+    }
+    
     try {
       final size = await CacheHelper.getCacheSize();
       if (mounted) {
@@ -58,9 +64,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
       }
     } catch (e) {
+      debugPrint('Error loading cache size: $e');
       if (mounted) {
         setState(() {
-          _cacheSize = 'Unknown';
+          _cacheSize = 'Error calculating';
         });
       }
     }
