@@ -110,7 +110,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         categoryId: _selectedCategoryId,
       );
 
-      await dbHelper.addTransaction(newTransaction, _currentUser!.uid);
+      final transactionId = await dbHelper.addTransaction(newTransaction, _currentUser!.uid);
 
       if (!mounted) return;
       
@@ -119,9 +119,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         _isSaving = false;
       });
       
-      // Show success and navigate
+      // Show success and navigate - return true to indicate success
       SnackbarHelper.showSuccess(context, 'Transaction saved successfully!');
-      Navigator.of(context).pop(true);
+      // Small delay to ensure database write is complete
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
     } catch (e) {
       if (mounted) {
         setState(() {

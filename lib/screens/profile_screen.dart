@@ -11,7 +11,6 @@ import '../helpers/config.dart';
 import '../helpers/database_helper.dart';
 import '../helpers/dialog_helper.dart';
 import '../helpers/cache_helper.dart';
-import '../helpers/snackbar_helper.dart';
 import 'passcode_screen.dart';
 
 class ProfileScreen extends StatefulWidget {

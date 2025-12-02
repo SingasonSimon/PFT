@@ -259,12 +259,13 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () async {
-              await Navigator.push(
+              final result = await Navigator.push<bool>(
                 context,
                 MaterialPageRoute(builder: (context) => const AddTransactionScreen()),
               );
-              if (currentUser != null) {
-                _refreshData();
+              // Only refresh if a transaction was actually saved (result == true)
+              if (result == true && currentUser != null && mounted) {
+                await _refreshData();
               }
             },
             backgroundColor: const Color(0xFF4CAF50),

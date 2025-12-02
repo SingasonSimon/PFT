@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_pin_code_fields/flutter_pin_code_fields.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../main.dart'; // Import MainScreen to navigate to it
+import '../helpers/dialog_helper.dart';
 
 class PasscodeScreen extends StatefulWidget {
   final bool isSettingPasscode;
@@ -60,6 +62,202 @@ class _PasscodeScreenState extends State<PasscodeScreen> with SingleTickerProvid
 
   void _triggerShake() {
     _shakeController.forward(from: 0);
+  }
+
+  Future<void> _handleForgotPasscode() async {
+    final auth = FirebaseAuth.instance;
+    final user = auth.currentUser;
+    
+    // Check if user is authenticated
+    if (user == null || user.email == null) {
+      Fluttertoast.showToast(
+        msg: 'Please log in to reset your passcode',
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
+      return;
+    }
+
+    // Show confirmation dialog
+    final bool? confirm = await DialogHelper.showConfirmDialog(
+      context: context,
+      title: 'Reset Passcode',
+      message: 'To reset your passcode, you need to verify your identity by entering your account password.',
+      confirmText: 'Continue',
+      confirmColor: const Color(0xFF4CAF50),
+    );
+
+    if (confirm != true) return;
+
+    // Show password input dialog
+    final passwordController = TextEditingController();
+    final passwordFormKey = GlobalKey<FormState>();
+    bool isPasswordVisible = false;
+    bool isVerifying = false;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Verify Identity',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Form(
+            key: passwordFormKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Enter your account password to reset the passcode',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  controller: passwordController,
+                  obscureText: !isPasswordVisible,
+                  enabled: !isVerifying,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    hintText: 'Enter your password',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        isPasswordVisible
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                      ),
+                      onPressed: () {
+                        setDialogState(() {
+                          isPasswordVisible = !isPasswordVisible;
+                        });
+                      },
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your password';
+                    }
+                    return null;
+                  },
+                ),
+                if (isVerifying) ...[
+                  const SizedBox(height: 16),
+                  const CircularProgressIndicator(),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isVerifying
+                  ? null
+                  : () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isVerifying
+                  ? null
+                  : () async {
+                      if (!passwordFormKey.currentState!.validate()) {
+                        return;
+                      }
+
+                      setDialogState(() {
+                        isVerifying = true;
+                      });
+
+                      try {
+                        // Re-authenticate user with password
+                        final credential = EmailAuthProvider.credential(
+                          email: user.email!,
+                          password: passwordController.text,
+                        );
+                        await user.reauthenticateWithCredential(credential);
+
+                        // Clear the passcode
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.remove('passcode');
+
+                        if (context.mounted) {
+                          Navigator.of(context).pop(true);
+                          Fluttertoast.showToast(
+                            msg: 'Passcode reset successfully. Please set a new passcode.',
+                            backgroundColor: const Color(0xFF4CAF50),
+                            textColor: Colors.white,
+                          );
+                          
+                          // Navigate to set new passcode
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (context) => const PasscodeScreen(
+                                isSettingPasscode: true,
+                              ),
+                            ),
+                          );
+                        }
+                      } on FirebaseAuthException catch (e) {
+                        setDialogState(() {
+                          isVerifying = false;
+                        });
+                        String errorMessage = 'Verification failed';
+                        if (e.code == 'wrong-password') {
+                          errorMessage = 'Incorrect password. Please try again.';
+                        } else if (e.code == 'too-many-requests') {
+                          errorMessage = 'Too many attempts. Please try again later.';
+                        } else if (e.code == 'network-request-failed') {
+                          errorMessage = 'Network error. Please check your connection.';
+                        }
+                        
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(errorMessage),
+                              backgroundColor: Colors.red,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        setDialogState(() {
+                          isVerifying = false;
+                        });
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error: $e'),
+                              backgroundColor: Colors.red,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4CAF50),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Verify'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    passwordController.dispose();
   }
 
   @override
@@ -302,13 +500,20 @@ class _PasscodeScreenState extends State<PasscodeScreen> with SingleTickerProvid
                   
                   const SizedBox(height: 40),
                   
-                  // Helper text
+                  // Forgot passcode button
                   if (!widget.isSettingPasscode && !_hasError)
-                    Text(
-                      'Forgot your passcode?',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[500],
+                    TextButton(
+                      onPressed: _handleForgotPasscode,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
+                      child: Text(
+                        'Forgot your passcode?',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                 ],
