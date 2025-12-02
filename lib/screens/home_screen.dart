@@ -4,11 +4,13 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../helpers/database_helper.dart';
 import '../helpers/dialog_helper.dart';
+import '../helpers/notification_service.dart';
 import '../models/bill.dart';
 import '../models/transaction.dart' as model;
 import 'add_transaction_screen.dart';
 import 'all_transactions_screen.dart';
 import 'add_bill_screen.dart';
+import 'edit_bill_screen.dart';
 import 'transaction_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -122,6 +124,51 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
     _refreshData();
+  }
+
+  Future<void> _editBill(Bill bill) async {
+    if (_currentUser == null) return;
+    
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (context) => EditBillScreen(bill: bill),
+      ),
+    );
+    
+    if (result == true && mounted) {
+      _refreshData();
+    }
+  }
+
+  Future<void> _deleteBill(Bill bill) async {
+    if (_currentUser == null || bill.id == null) return;
+
+    final bool? confirm = await DialogHelper.showConfirmDialog(
+      context: context,
+      title: 'Delete Bill',
+      message: 'Are you sure you want to delete "${bill.name}"? This action cannot be undone.',
+      confirmText: 'Delete',
+      confirmColor: Colors.red,
+    );
+
+    if (confirm == true && mounted) {
+      try {
+        // Cancel notification
+        final notificationService = NotificationService();
+        await notificationService.cancelNotification(bill.id!);
+        
+        await dbHelper.deleteBill(bill.id!, _currentUser.uid);
+        
+        if (mounted) {
+          SnackbarHelper.showSuccess(context, 'Bill deleted successfully!');
+          _refreshData();
+        }
+      } catch (e) {
+        if (mounted) {
+          SnackbarHelper.showError(context, 'Failed to delete bill');
+        }
+      }
+    }
   }
   
   ({IconData icon, Color color}) _getBillStyling(String billName) {
@@ -306,7 +353,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Center(child: Text('No upcoming bills.')),
               )
             : SizedBox(
-                height: 165,
+                height: 180,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 12.0),
@@ -325,53 +372,127 @@ class _HomeScreenState extends State<HomeScreen> {
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.all(16.0),
+                          padding: const EdgeInsets.all(12.0),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Row(
                                 children: [
-                                  Icon(styling.icon, size: 28, color: styling.color),
+                                  Icon(styling.icon, size: 24, color: styling.color),
                                   const Spacer(),
-                                  if (bill.isRecurring) Icon(Icons.sync, size: 16, color: Colors.grey.shade600)
+                                  if (bill.isRecurring) 
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 4),
+                                      child: Icon(Icons.sync, size: 14, color: Colors.grey.shade600),
+                                    ),
+                                  PopupMenuButton<String>(
+                                    icon: Icon(Icons.more_vert, size: 18, color: Colors.grey.shade600),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    onSelected: (value) {
+                                      if (value == 'edit') {
+                                        _editBill(bill);
+                                      } else if (value == 'delete') {
+                                        _deleteBill(bill);
+                                      }
+                                    },
+                                    itemBuilder: (BuildContext context) => [
+                                      const PopupMenuItem<String>(
+                                        value: 'edit',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.edit, size: 20, color: Color(0xFF4CAF50)),
+                                            SizedBox(width: 8),
+                                            Text('Edit'),
+                                          ],
+                                        ),
+                                      ),
+                                      const PopupMenuItem<String>(
+                                        value: 'delete',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                                            SizedBox(width: 8),
+                                            Text('Delete'),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ],
                               ),
-                              const Spacer(),
-                              Text(
-                                bill.name,
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
+                              const SizedBox(height: 6),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        bill.name,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Flexible(
+                                      child: Text(
+                                        '$_currencySymbol${bill.amount.toStringAsFixed(0)}',
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Flexible(
+                                      child: Text(
+                                        status.text,
+                                        style: TextStyle(
+                                          color: status.color,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              Text(
-                                '$_currencySymbol${bill.amount.toStringAsFixed(0)}',
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
-                              Text(
-                                status.text,
-                                style: TextStyle(color: status.color, fontSize: 12, fontWeight: FontWeight.bold),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
-                              const Spacer(),
+                              const SizedBox(height: 6),
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: TextButton(
                                   style: TextButton.styleFrom(
-                                    padding: EdgeInsets.zero,
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    minimumSize: Size.zero,
                                   ),
                                   child: _payingBills.contains(bill.id)
                                       ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
+                                          width: 14,
+                                          height: 14,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
                                             color: Color(0xFF4CAF50),
                                           ),
                                         )
-                                      : const Text('Pay Bill'),
+                                      : const Text(
+                                          'Pay Bill',
+                                          style: TextStyle(fontSize: 12),
+                                        ),
                                   onPressed: _payingBills.contains(bill.id)
                                       ? null
                                       : () async {
@@ -397,6 +518,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                       final nextDueDate = _calculateNextDueDate(bill);
                                               final updatedBill =
                                                   bill.copyWith(dueDate: nextDueDate);
+                                              
+                                              // Update notification for new due date
+                                              final notificationService = NotificationService();
+                                              if (bill.id != null) {
+                                                await notificationService.cancelNotification(bill.id!);
+                                                await notificationService.scheduleBillNotification(updatedBill);
+                                              }
+                                              
                                               await dbHelper.updateBill(
                                                   updatedBill, currentUser.uid);
                                               if (mounted) {
@@ -404,6 +533,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                                     'Recurring bill "${bill.name}" paid. Next due date set.');
                                               }
                                     } else {
+                                              // Cancel notification before deleting
+                                              final notificationService = NotificationService();
+                                              if (bill.id != null) {
+                                                await notificationService.cancelNotification(bill.id!);
+                                              }
+                                              
                                               await dbHelper.deleteBill(
                                                   bill.id!, currentUser.uid);
                                               if (mounted) {
