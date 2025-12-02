@@ -108,7 +108,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
     final hasSeenWelcome = prefs.getBool('hasSeenWelcome') ?? false;
     
     if (hasSeenWelcome && mounted) {
-      Navigator.of(context).pushReplacement(
+      Navigator.of(context).push(
         MaterialPageRoute(builder: (context) => const LoginScreen()),
       );
     }
@@ -119,7 +119,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
     await prefs.setBool('hasSeenWelcome', true);
     
     if (mounted) {
-      Navigator.of(context).pushReplacement(
+      Navigator.of(context).push(
         MaterialPageRoute(builder: (context) => const LoginScreen()),
       );
     }
