@@ -54,29 +54,68 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         (route) => false,
       );
     } on FirebaseAuthException catch (e) {
-      String errorMessage = 'Login failed';
+      String errorMessage = 'Unable to sign in. Please try again.';
       
       switch (e.code) {
         case 'user-not-found':
-          errorMessage = 'No user found with this email.';
+          errorMessage = 'No account found with this email address. Please check your email or sign up for a new account.';
           break;
         case 'wrong-password':
-          errorMessage = 'Incorrect password.';
+          errorMessage = 'Incorrect password. Please check your password and try again.';
           break;
         case 'invalid-email':
-          errorMessage = 'The email address is invalid.';
+          errorMessage = 'Invalid email address. Please enter a valid email address.';
+          break;
+        case 'invalid-credential':
+        case 'invalid-verification-code':
+        case 'invalid-verification-id':
+          errorMessage = 'Invalid email or password. Please check your credentials and try again.';
           break;
         case 'user-disabled':
-          errorMessage = 'This account has been disabled.';
+          errorMessage = 'This account has been disabled. Please contact support for assistance.';
           break;
         case 'too-many-requests':
-          errorMessage = 'Too many failed attempts. Please try again later.';
+          errorMessage = 'Too many failed login attempts. Please wait a few minutes and try again.';
           break;
         case 'network-request-failed':
-          errorMessage = 'Network error. Please check your connection.';
+        case 'network-error':
+          errorMessage = 'Network connection failed. Please check your internet connection and try again.';
+          break;
+        case 'operation-not-allowed':
+          errorMessage = 'Email/password sign-in is not enabled. Please contact support.';
+          break;
+        case 'email-already-in-use':
+          errorMessage = 'This email is already registered. Please sign in instead.';
+          break;
+        case 'weak-password':
+          errorMessage = 'Password is too weak. Please use a stronger password.';
+          break;
+        case 'requires-recent-login':
+          errorMessage = 'Please sign out and sign in again to continue.';
+          break;
+        case 'credential-already-in-use':
+          errorMessage = 'This account is already linked to another sign-in method.';
+          break;
+        case 'invalid-action-code':
+          errorMessage = 'Invalid verification code. Please request a new one.';
+          break;
+        case 'expired-action-code':
+          errorMessage = 'Verification code has expired. Please request a new one.';
           break;
         default:
-          errorMessage = e.message ?? 'Login failed: ${e.code}';
+          // Try to extract a user-friendly message from Firebase's error message
+          final firebaseMessage = e.message?.toLowerCase() ?? '';
+          if (firebaseMessage.contains('password')) {
+            errorMessage = 'Incorrect password. Please check your password and try again.';
+          } else if (firebaseMessage.contains('email')) {
+            errorMessage = 'Invalid email address. Please check your email and try again.';
+          } else if (firebaseMessage.contains('network') || firebaseMessage.contains('connection')) {
+            errorMessage = 'Network error. Please check your internet connection and try again.';
+          } else if (firebaseMessage.contains('user') && firebaseMessage.contains('not found')) {
+            errorMessage = 'No account found with this email address. Please sign up for a new account.';
+          } else {
+            errorMessage = 'Unable to sign in. Please check your email and password and try again.';
+          }
       }
       
       if (mounted) {
@@ -90,7 +129,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         setState(() {
           _isLoading = false;
         });
-        SnackbarHelper.showError(context, 'An unexpected error occurred: $e');
+        // Provide a user-friendly generic error message
+        SnackbarHelper.showError(context, 'Something went wrong. Please check your internet connection and try again.');
       }
     }
   }
@@ -279,10 +319,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Please enter your email';
+                            return 'Email address is required';
                           }
-                          if (!value.contains('@')) {
-                            return 'Please enter a valid email';
+                          if (!value.contains('@') || !value.contains('.')) {
+                            return 'Please enter a valid email address (e.g., name@example.com)';
+                          }
+                          // Basic email format validation
+                          final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                          if (!emailRegex.hasMatch(value.trim())) {
+                            return 'Please enter a valid email address';
                           }
                           return null;
                         },
@@ -364,10 +409,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Please enter your password';
+                            return 'Password is required';
                           }
                           if (value.length < 6) {
-                            return 'Password must be at least 6 characters';
+                            return 'Password must be at least 6 characters long';
                           }
                           return null;
                         },
