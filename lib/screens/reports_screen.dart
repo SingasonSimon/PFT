@@ -413,12 +413,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               ),
                             ),
                             const SizedBox(width: 12),
-                            const Text(
-                              'Cash Flow Analysis',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                            Expanded(
+                              child: Text(
+                                'Cash Flow Analysis',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
                               ),
                             ),
                           ],
@@ -430,6 +434,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             color: Colors.grey[600],
                             fontSize: 13,
                           ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
                       ],
                     ),
@@ -779,69 +785,77 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           // Income legend
-                          Row(
-                            children: [
-                              Container(
-                                width: 16,
-                                height: 4,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF4CAF50),
-                                  borderRadius: BorderRadius.circular(2),
+                          Flexible(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 16,
+                                  height: 4,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF4CAF50),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF4CAF50),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 2),
+                                const SizedBox(width: 8),
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF4CAF50),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Income',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey[700],
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Income',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey[700],
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                           const SizedBox(width: 24),
                           // Expenses legend
-                          Row(
-                            children: [
-                              Container(
-                                width: 16,
-                                height: 4,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFE53935),
-                                  borderRadius: BorderRadius.circular(2),
+                          Flexible(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 16,
+                                  height: 4,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE53935),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFE53935),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 2),
+                                const SizedBox(width: 8),
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE53935),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Expenses',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey[700],
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Expenses',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey[700],
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -943,9 +957,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
             const SizedBox(height: 16),
             Row(
               children: [
-                _buildLegendItem('Income', const Color(0xFF4CAF50)),
+                Flexible(
+                  child: _buildLegendItem('Income', const Color(0xFF4CAF50)),
+                ),
                 const SizedBox(width: 16),
-                _buildLegendItem('Expenses', const Color(0xFFE53935)),
+                Flexible(
+                  child: _buildLegendItem('Expenses', const Color(0xFFE53935)),
+                ),
               ],
             ),
           ],
@@ -1000,23 +1018,33 @@ class _ReportsScreenState extends State<ReportsScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Expense Breakdown',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Top categories for ${_selectedTimeFilter.capitalize()}',
-                        style: TextStyle(color: Colors.grey[600]),
-                      ),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Expense Breakdown',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Top categories for ${_selectedTimeFilter.capitalize()}',
+                          style: TextStyle(color: Colors.grey[600]),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ],
+                    ),
                   ),
-                  Text(
-                    'Total $_currencySymbol${totalExpenses.toStringAsFixed(0)}',
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'Total $_currencySymbol${totalExpenses.toStringAsFixed(0)}',
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      textAlign: TextAlign.right,
+                    ),
                   ),
                 ],
               ),
@@ -1064,16 +1092,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         entry.key,
                         style: const TextStyle(fontWeight: FontWeight.w600),
                         overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                     ),
-                    Text(
-                      '$_currencySymbol${entry.value.toStringAsFixed(0)}',
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    Flexible(
+                      child: Text(
+                        '$_currencySymbol${entry.value.toStringAsFixed(0)}',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       '${((entry.value / totalExpenses) * 100).toStringAsFixed(1)}%',
                       style: TextStyle(color: Colors.grey[600]),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -1097,6 +1131,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   Widget _buildLegendItem(String label, Color color) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 12,
@@ -1104,7 +1139,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
           decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)),
         ),
         const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+        Flexible(
+          child: Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+        ),
       ],
     );
   }
@@ -1119,12 +1161,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
             children: [
               Icon(icon, size: 16, color: color),
               const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ),
             ],
@@ -1137,6 +1183,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
               fontWeight: FontWeight.bold,
               color: color,
             ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
           ),
         ],
       ),
@@ -1268,6 +1316,8 @@ class _SummaryHeroCard extends StatelessWidget {
                         .textTheme
                         .titleMedium
                         ?.copyWith(fontWeight: FontWeight.w700),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
                   ),
                 ),
               ],
@@ -1279,6 +1329,8 @@ class _SummaryHeroCard extends StatelessWidget {
                     color: accentColor,
                     fontWeight: FontWeight.w800,
                   ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
             const SizedBox(height: 12),
             Text(
@@ -1287,6 +1339,8 @@ class _SummaryHeroCard extends StatelessWidget {
                     color: Colors.grey[800],
                     height: 1.4,
                   ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
             ),
           ],
         ),
