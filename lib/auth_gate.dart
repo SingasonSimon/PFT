@@ -1,7 +1,12 @@
+/// Authentication gate widget
+///
+/// Manages application routing based on authentication state and passcode settings.
+/// Routes users to welcome screen, passcode screen, or main screen as appropriate.
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'main.dart'; // Your MainScreen with the bottom nav bar
+import 'main.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/passcode_screen.dart';
 

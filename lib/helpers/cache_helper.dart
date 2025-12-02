@@ -1,9 +1,10 @@
-// lib/helpers/cache_helper.dart
+/// Cache helper utility for managing application cache
+///
+/// Provides functionality to calculate cache size and clear cached data
+/// including images and temporary files.
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as path;
 import 'dart:io';
 
 class CacheHelper {

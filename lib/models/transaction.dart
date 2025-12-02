@@ -1,4 +1,7 @@
-// Transaction model represents a financial transaction, including type, amount, and category.
+/// Transaction model representing a financial transaction
+///
+/// Includes transaction type (income/expense), amount, description,
+/// date, and optional category association.
 
 class Transaction {
   final int? id;

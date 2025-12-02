@@ -17,8 +17,8 @@ final NotificationService notificationService = NotificationService();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Limit image cache size to reduce memory usage (50MB max)
-  const int maxCacheSize = 50 * 1024 * 1024; // 50MB in bytes
+  // Configure image cache limits to reduce memory usage
+  const int maxCacheSize = 50 * 1024 * 1024; // 50MB maximum cache size in bytes
   imageCache.maximumSize = 100; // Maximum number of images to cache
   imageCache.maximumSizeBytes = maxCacheSize;
   
@@ -109,8 +109,6 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(child: _widgetOptions.elementAt(_selectedIndex)),
-
-      // UPDATED: Replaced BottomNavigationBar with the modern NavigationBar
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: _onItemTapped,

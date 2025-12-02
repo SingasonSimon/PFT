@@ -1,4 +1,7 @@
-// lib/helpers/notification_service.dart
+/// Notification service for managing bill reminders and app notifications
+///
+/// Handles scheduling, canceling, and displaying local notifications
+/// for bill due dates and other app events.
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
@@ -21,7 +24,7 @@ class NotificationService {
   }
 
   Future<void> scheduleBillNotification(Bill bill) async {
-    // Schedule the notification for 1 day before the due date at 9 AM
+    // Schedule notification for one day before the due date at 9:00 AM
     final scheduleTime = tz.TZDateTime.from(bill.dueDate, tz.local).subtract(const Duration(days: 1)).add(const Duration(hours: 9));
 
     // Ensure the scheduled time is in the future

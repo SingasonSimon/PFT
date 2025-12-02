@@ -486,16 +486,12 @@ class _HomeScreenState extends State<HomeScreen> {
               _deleteTransaction(transaction.id!, currentUser.uid);
             }
           },
-          
-          // CORRECTED: The background (for swipe right-to-left) is now the blue edit
           background: Container(
             color: Colors.blue,
             padding: const EdgeInsets.symmetric(horizontal: 20),
             alignment: Alignment.centerLeft,
             child: const Icon(Icons.edit, color: Colors.white),
           ),
-          
-          // CORRECTED: The secondaryBackground (for swipe left-to-right) is now the red delete
           secondaryBackground: Container(
             color: Colors.red,
             padding: const EdgeInsets.symmetric(horizontal: 20),

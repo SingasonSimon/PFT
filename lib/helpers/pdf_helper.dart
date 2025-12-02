@@ -1,4 +1,7 @@
-// PdfHelper provides utilities for generating and sharing PDF reports from transaction data.
+/// PDF helper utility for generating and sharing PDF reports
+///
+/// Provides functionality to create formatted PDF documents containing
+/// transaction data, summaries, and financial reports.
 
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -8,7 +11,10 @@ import '../models/transaction.dart' as model;
 import '../models/category.dart';
 
 class PdfHelper {
-  // Generates and shares a PDF report for the given transactions and user, using the specified file name.
+  /// Generates and shares a PDF report for the given transactions and user
+  ///
+  /// Creates a formatted PDF document with transaction details, summaries,
+  /// and financial analysis, then shares it using the platform's share dialog.
   static Future<void> generateAndSharePdf(
     List<model.Transaction> transactions,
     String userName,

@@ -1,3 +1,8 @@
+/// Date picker helper utility
+///
+/// Provides consistent date and date range picker dialogs
+/// with modern Material Design styling.
+
 import 'package:flutter/material.dart';
 
 class DatePickerHelper {

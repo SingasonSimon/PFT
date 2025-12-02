@@ -47,7 +47,7 @@
 //         .collection('users')
 //         .doc(userId)
 //         .collection('categories')
-//         .doc(name) // Use name as ID to prevent duplicates
+//         .doc(name) // Use name as document ID to prevent duplicates
 //         .set({'name': name});
 //   }
 
@@ -60,8 +60,7 @@
 //         .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
 //   }
   
-//   // Note: We'll need to adjust how we get category IDs later if needed.
-//   // For now, the existing logic in other files is okay.
+//   // Category ID handling may need adjustment in future iterations
 
 //   // --- Savings Functions ---
 

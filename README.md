@@ -9,13 +9,13 @@
 
 **Comprehensive  documentation for the Personal Finance Tracker mobile app.**
 
-[Overview](#-overview) • [Architecture](#-system-architecture) • [Tech Stack](#-tech-stack) • [Setup](#-setup--deployment) • [Usage](#-feature-guide) • [Testing](#-quality-assurance) • [Support](#-support)
+[Overview](#overview) • [Architecture](#system-architecture) • [Tech Stack](#tech-stack) • [Setup](#setup--deployment) • [Usage](#feature-guide) • [Testing](#quality-assurance) • [Support](#support)
 
 </div>
 
 ---
 
-## 📘 Overview
+## Overview
 
 The Personal Finance Tracker (PFT) is a cross-platform Flutter application that helps individuals record transactions, manage bills, analyze expenses, and monitor financial health from a single interface. The project intentionally focuses on educational clarity: the codebase demonstrates clean architecture principles, modern UI/UX, Firebase integration, and offline-first patterns suitable for student projects and professional portfolios.
 
@@ -31,7 +31,7 @@ The Personal Finance Tracker (PFT) is a cross-platform Flutter application that 
 
 ---
 
-## 🏗 System Architecture
+## System Architecture
 
 ```
 ┌──────────────────┐
@@ -62,7 +62,7 @@ The Personal Finance Tracker (PFT) is a cross-platform Flutter application that 
 
 ---
 
-## 🧰 Tech Stack
+## Tech Stack
 
 | Layer | Technology | Purpose |
 | --- | --- | --- |
@@ -81,7 +81,7 @@ The Personal Finance Tracker (PFT) is a cross-platform Flutter application that 
 
 ---
 
-## 🗂 Repository Layout
+## Repository Layout
 
 ```
 lib/
@@ -119,7 +119,7 @@ lib/
 
 ---
 
-## 📋 Feature Guide
+## Feature Guide
 
 | Module | Capabilities | Key Files |
 | --- | --- | --- |
@@ -134,7 +134,7 @@ UX staples include consistent input theming, animated dialogs, loading overlays,
 
 ---
 
-## ⚙️ Setup & Deployment
+## Setup & Deployment
 
 ### 1. System Prerequisites
 - Flutter SDK 3.22+
@@ -195,7 +195,7 @@ flutter build ios --release
 
 ---
 
-## 🔬 Quality Assurance
+## Quality Assurance
 
 | Area | Command | Notes |
 | --- | --- | --- |
@@ -214,7 +214,7 @@ flutter build ios --release
 
 ---
 
-## 🧭 Operational Playbook
+## Operational Playbook
 
 ### Troubleshooting
 | Scenario | Resolution |
@@ -233,7 +233,7 @@ flutter build ios --release
 
 ---
 
-## 🤝 Contribution Guidelines
+## Contribution Guidelines
 
 1. Fork repository and create feature branch (`git checkout -b feature/<name>`).
 2. Run `flutter analyze` and `flutter test`.
@@ -247,13 +247,13 @@ flutter build ios --release
 
 ---
 
-## 📄 License
+## License
 
 MIT License – see [`LICENSE`](LICENSE) for full text.
 
 ---
 
-## 👤 Maintainer
+## Maintainer
 
 **Singason Simon**  
 - GitHub: [@SingasonSimon](https://github.com/SingasonSimon)  
@@ -263,14 +263,14 @@ MIT License – see [`LICENSE`](LICENSE) for full text.
 
 ---
 
-## 🙏 Acknowledgements
+## Acknowledgements
 - Flutter & Dart teams for the core tooling.
 - Firebase team for the managed backend platform.
 - Community package authors (`fl_chart`, `pdf`, `flutter_local_notifications`, etc.).
 
 ---
 
-## 📞 Support
+## Support
 
 | Channel | Details |
 | --- | --- |
@@ -279,7 +279,7 @@ MIT License – see [`LICENSE`](LICENSE) for full text.
 
 ---
 
-## 🚧 Roadmap
+## Roadmap
 
 - [ ] Budget planning module with alerts
 - [ ] Collaborative accounts / shared wallets
@@ -293,6 +293,6 @@ MIT License – see [`LICENSE`](LICENSE) for full text.
 <div align="center">
 
 **Crafted with care using Flutter.**  
-If this documentation helped you, kindly ⭐ the repository!
+If this documentation helped you, kindly star the repository!
 
 </div>

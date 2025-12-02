@@ -1,3 +1,8 @@
+/// Database helper for managing local SQLite database and Firestore synchronization
+///
+/// Provides CRUD operations for transactions, categories, and bills.
+/// Handles database migrations and automatic synchronization with Firestore.
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart' hide Transaction;
@@ -114,7 +119,7 @@ class DatabaseHelper {
         FROM transactions
       ''');
       
-      // Drop old table and rename new one
+      // Drop old table and rename new table to original name
       await db.execute('DROP TABLE transactions');
       await db.execute('ALTER TABLE transactions_new RENAME TO transactions');
     }
@@ -148,7 +153,9 @@ class DatabaseHelper {
     return List.generate(maps.length, (i) => model.Transaction.fromMap(maps[i]));
   }
 
-  // NEW: Function to update a transaction in both local DB and Firestore
+  /// Updates a transaction in both local database and Firestore
+  ///
+  /// Modifies the transaction record locally and synchronizes changes to Firestore.
   Future<int> updateTransaction(model.Transaction transaction, String userId) async {
     final db = await database;
     final result = await db.update(

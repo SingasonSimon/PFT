@@ -1,4 +1,7 @@
-// lib/models/category.dart
+/// Category model representing transaction categories
+///
+/// Categories can be either income or expense type and include
+/// visual customization options (icon and color).
 
 class Category {
   final int? id;

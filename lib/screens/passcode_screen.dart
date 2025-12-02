@@ -10,7 +10,7 @@ import '../helpers/dialog_helper.dart';
 
 class PasscodeScreen extends StatefulWidget {
   final bool isSettingPasscode;
-  // NEW: Flag to check if we're unlocking the app on startup
+  /// Flag indicating whether this screen is used for unlocking the app on startup
   final bool isAppUnlock;
 
   const PasscodeScreen({
@@ -317,7 +317,7 @@ class _PasscodeScreenState extends State<PasscodeScreen> with SingleTickerProvid
                                         textColor: Colors.white,
                                       );
                                       
-                                      // Navigate to set new passcode
+                                      // Navigate to passcode setup screen
                                       Navigator.of(context).pushReplacement(
                                         MaterialPageRoute(
                                           builder: (context) => const PasscodeScreen(
@@ -415,7 +415,7 @@ class _PasscodeScreenState extends State<PasscodeScreen> with SingleTickerProvid
     final savedPin = prefs.getString('passcode');
     final navigator = Navigator.of(context);
 
-    // This block is for SETTING a new passcode
+    // Set new passcode
     if (widget.isSettingPasscode) {
       if (savedPin != null && savedPin == pin) {
         setState(() {
@@ -465,10 +465,10 @@ class _PasscodeScreenState extends State<PasscodeScreen> with SingleTickerProvid
         }
       }
     } 
-    // This block is for VERIFYING an existing passcode
+    // Verify existing passcode
     else {
       if (savedPin == pin) {
-        // UPDATED: Check if we are unlocking the app
+        // Check if this is an app unlock scenario
         if (widget.isAppUnlock) {
           // If yes, replace the current screen with the MainScreen
           navigator.pushReplacement(

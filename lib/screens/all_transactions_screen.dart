@@ -18,12 +18,12 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
   final dbHelper = DatabaseHelper();
   List<model.Transaction> _allTransactions = [];
   List<model.Transaction> _filteredTransactions = [];
-  List<Category> _allCategories = []; // NEW: To hold categories for the filter
+  List<Category> _allCategories = [];
   bool _isLoading = true;
   final _searchController = TextEditingController();
   final User? _currentUser = FirebaseAuth.instance.currentUser;
 
-  // NEW: State variables to hold the current filter values
+  // State variables for filter values
   int? _filterCategoryId;
   String? _filterType;
   DateTimeRange? _filterDateRange;
@@ -53,7 +53,7 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
     }
   }
 
-  // UPDATED: This function now applies ALL filters, not just search
+  /// Applies all active filters (search, category, type, date range) to the transaction list
   void _applyAllFilters() {
     final query = _searchController.text.toLowerCase();
     
@@ -86,7 +86,7 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
     super.dispose();
   }
 
-  // NEW: Function to show the filter bottom sheet
+  /// Displays the filter bottom sheet for transaction filtering
   void _showFilterSheet() {
     showModalBottomSheet(
       context: context,
@@ -213,7 +213,6 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
       appBar: AppBar(
         title: const Text('All Transactions'),
         actions: [
-          // NEW: Filter button
           IconButton(
             icon: const Icon(Icons.filter_list),
             onPressed: _showFilterSheet,

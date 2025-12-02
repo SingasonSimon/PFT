@@ -1,4 +1,7 @@
-// Bill model represents a bill, including recurring payment properties and due date.
+/// Bill model representing a bill or recurring payment
+///
+/// Includes bill name, amount, due date, and optional recurrence settings
+/// for automatic bill tracking and reminders.
 
 class Bill {
   final int? id;
@@ -20,7 +23,7 @@ class Bill {
     this.recurrenceValue,
   });
 
-  // NEW: A 'copyWith' method to easily create a modified copy of a bill
+  /// Creates a copy of this bill with optional new values for each property
   Bill copyWith({
     int? id,
     String? name,
@@ -47,7 +50,7 @@ class Bill {
       'name': name,
       'amount': amount,
       'dueDate': dueDate.toIso8601String(),
-      'isRecurring': isRecurring ? 1 : 0, // Convert bool to integer for SQLite
+      'isRecurring': isRecurring ? 1 : 0, // Convert boolean to integer for SQLite storage
       'recurrenceType': recurrenceType,
       'recurrenceValue': recurrenceValue,
     };

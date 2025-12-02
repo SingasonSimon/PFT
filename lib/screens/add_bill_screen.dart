@@ -23,7 +23,7 @@ class _AddBillScreenState extends State<AddBillScreen> {
   DateTime _selectedDate = DateTime.now();
   final User? _currentUser = FirebaseAuth.instance.currentUser;
   
-  // NEW: State variables for recurring bills
+  // State variables for recurring bills
   bool _isRecurring = false;
   String _recurrenceType = 'monthly'; // Default recurrence type
   bool _isSaving = false;
@@ -66,7 +66,7 @@ class _AddBillScreenState extends State<AddBillScreen> {
           return;
         }
 
-        // UPDATED: Create a Bill object with the new recurring properties
+        // Create a Bill object with recurring properties
         final newBill = Bill(
           name: billName,
           amount: double.parse(_amountController.text),

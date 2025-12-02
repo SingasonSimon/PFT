@@ -1,3 +1,8 @@
+/// Dialog helper utility for displaying consistent dialogs and snackbars
+///
+/// Provides standardized dialog, snackbar, and toast message components
+/// with consistent styling and behavior across the application.
+
 import 'package:flutter/material.dart';
 
 class DialogHelper {
