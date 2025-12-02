@@ -10,6 +10,8 @@ import 'package:http/http.dart' as http;
 import '../helpers/config.dart';
 import '../helpers/database_helper.dart';
 import '../helpers/dialog_helper.dart';
+import '../helpers/cache_helper.dart';
+import '../helpers/snackbar_helper.dart';
 import 'passcode_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -29,20 +31,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoggingOut = false;
   bool _isUploading = false;
   bool _isRestoring = false;
+  bool _isClearingCache = false;
   String _selectedCurrency = 'KSh';
   bool _isPasscodeEnabled = false;
   bool _isImageLoading = false;
   String? _cachedImageUrl;
+  String _cacheSize = 'Calculating...';
 
   @override
   void initState() {
     super.initState();
     _loadPreferences();
     _refreshUserData();
+    _loadCacheSize();
     // Preload profile image immediately
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _preloadProfileImage();
     });
+  }
+
+  Future<void> _loadCacheSize() async {
+    try {
+      final size = await CacheHelper.getCacheSize();
+      if (mounted) {
+        setState(() {
+          _cacheSize = CacheHelper.formatBytes(size);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _cacheSize = 'Unknown';
+        });
+      }
+    }
+  }
+
+  Future<void> _handleClearCache() async {
+    final bool? confirm = await DialogHelper.showConfirmDialog(
+      context: context,
+      title: 'Clear Cache',
+      message: 'This will clear all cached images and temporary files. This may free up storage space. Continue?',
+      confirmText: 'Clear',
+      confirmColor: Colors.orange,
+    );
+
+    if (confirm == true && mounted) {
+      setState(() => _isClearingCache = true);
+      try {
+        await CacheHelper.clearAllCache();
+        await _loadCacheSize(); // Refresh cache size
+        if (mounted) {
+          SnackbarHelper.showSuccess(context, 'Cache cleared successfully!');
+        }
+      } catch (e) {
+        if (mounted) {
+          SnackbarHelper.showError(context, 'Error clearing cache: $e');
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isClearingCache = false);
+        }
+      }
+    }
   }
 
   Future<void> _preloadImage(String imageUrl) async {
@@ -667,6 +718,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             : const Icon(Icons.chevron_right, color: Colors.grey),
               onTap: _isRestoring ? null : _handleRestore,
             ),
+                      const Divider(height: 1),
+                      _buildSettingTile(
+                        icon: Icons.cleaning_services_outlined,
+                        title: 'Clear Cache',
+                        subtitle: 'Cache size: $_cacheSize',
+                        trailing: _isClearingCache
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: Colors.orange,
+                                ))
+                            : const Icon(Icons.chevron_right, color: Colors.grey),
+                        onTap: _isClearingCache ? null : _handleClearCache,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 24),

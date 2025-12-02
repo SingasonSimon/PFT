@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Users collection - users can only read/write their own data
+    match /users/{userId} {
+      // Allow users to read/write their own user document
+      allow read, write: if isOwner(userId);
+      
+      // Transactions subcollection
+      match /transactions/{transactionId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Categories subcollection
+      match /categories/{categoryId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Bills subcollection
+      match /bills/{billId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+  }
+}
+

@@ -17,6 +17,11 @@ final NotificationService notificationService = NotificationService();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Limit image cache size to reduce memory usage (50MB max)
+  const int maxCacheSize = 50 * 1024 * 1024; // 50MB in bytes
+  imageCache.maximumSize = 100; // Maximum number of images to cache
+  imageCache.maximumSizeBytes = maxCacheSize;
+  
   try {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   } catch (e) {

@@ -348,30 +348,124 @@ class DatabaseHelper {
   }
 
   Future<void> restoreFromFirestore(String userId) async {
+    if (userId.isEmpty) {
+      throw Exception('User ID is required to restore data');
+    }
+
     final db = await database;
-    final batch = db.batch();
+    
+    try {
+      // Start a transaction for atomicity
+      await db.transaction((txn) async {
+        // Delete existing data
+        await txn.delete('transactions', where: 'userId = ?', whereArgs: [userId]);
+        await txn.delete('categories', where: 'userId = ?', whereArgs: [userId]);
+        await txn.delete('bills', where: 'userId = ?', whereArgs: [userId]);
 
-    batch.delete('transactions', where: 'userId = ?', whereArgs: [userId]);
-    batch.delete('categories', where: 'userId = ?', whereArgs: [userId]);
-    batch.delete('bills', where: 'userId = ?', whereArgs: [userId]);
+        // Restore transactions
+        try {
+          final transactionSnap = await _firestore
+              .collection('users')
+              .doc(userId)
+              .collection('transactions')
+              .get();
+          
+          for (final doc in transactionSnap.docs) {
+            final data = doc.data();
+            // Ensure userId is set and convert to proper format
+            final transactionData = {
+              'id': data['id'] ?? int.tryParse(doc.id),
+              'type': data['type'] ?? '',
+              'amount': (data['amount'] ?? 0.0).toDouble(),
+              'description': data['description'] ?? '',
+              'date': data['date'] ?? '',
+              'category_id': data['category_id'] ?? data['categoryId'],
+              'userId': userId,
+            };
+            await txn.insert('transactions', transactionData, conflictAlgorithm: ConflictAlgorithm.replace);
+          }
+          debugPrint('Restored ${transactionSnap.docs.length} transactions');
+        } catch (e) {
+          debugPrint('Error restoring transactions: $e');
+          if (e.toString().contains('permission') || e.toString().contains('PERMISSION_DENIED')) {
+            throw Exception('Permission denied: Please check your Firebase security rules. Make sure authenticated users can read their own data.');
+          }
+          rethrow;
+        }
 
-    final transactionSnap = await _firestore.collection('users').doc(userId).collection('transactions').get();
-    for (final doc in transactionSnap.docs) {
-      batch.insert('transactions', doc.data(), conflictAlgorithm: ConflictAlgorithm.replace);
+        // Restore categories
+        try {
+          final categorySnap = await _firestore
+              .collection('users')
+              .doc(userId)
+              .collection('categories')
+              .get();
+          
+          for (final doc in categorySnap.docs) {
+            final data = doc.data();
+            final categoryData = {
+              'id': data['id'] ?? int.tryParse(doc.id),
+              'name': data['name'] ?? '',
+              'type': data['type'] ?? 'expense',
+              'iconCodePoint': data['iconCodePoint'] ?? data['icon_code_point'],
+              'colorValue': data['colorValue'] ?? data['color_value'],
+              'userId': userId,
+            };
+            await txn.insert('categories', categoryData, conflictAlgorithm: ConflictAlgorithm.replace);
+          }
+          debugPrint('Restored ${categorySnap.docs.length} categories');
+        } catch (e) {
+          debugPrint('Error restoring categories: $e');
+          if (e.toString().contains('permission') || e.toString().contains('PERMISSION_DENIED')) {
+            throw Exception('Permission denied: Please check your Firebase security rules. Make sure authenticated users can read their own data.');
+          }
+          rethrow;
+        }
+
+        // Restore bills
+        try {
+          final billSnap = await _firestore
+              .collection('users')
+              .doc(userId)
+              .collection('bills')
+              .get();
+          
+          for (final doc in billSnap.docs) {
+            final data = doc.data();
+            final billData = {
+              'id': data['id'] ?? int.tryParse(doc.id),
+              'name': data['name'] ?? '',
+              'amount': (data['amount'] ?? 0.0).toDouble(),
+              'dueDate': data['dueDate'] ?? data['due_date'] ?? '',
+              'isRecurring': data['isRecurring'] ?? data['is_recurring'] ?? 0,
+              'recurrenceType': data['recurrenceType'] ?? data['recurrence_type'],
+              'recurrenceValue': data['recurrenceValue'] ?? data['recurrence_value'],
+              'userId': userId,
+            };
+            await txn.insert('bills', billData, conflictAlgorithm: ConflictAlgorithm.replace);
+          }
+          debugPrint('Restored ${billSnap.docs.length} bills');
+        } catch (e) {
+          debugPrint('Error restoring bills: $e');
+          if (e.toString().contains('permission') || e.toString().contains('PERMISSION_DENIED')) {
+            throw Exception('Permission denied: Please check your Firebase security rules. Make sure authenticated users can read their own data.');
+          }
+          rethrow;
+        }
+      });
+      
+      debugPrint('--- Successfully restored data from Firestore ---');
+    } catch (e) {
+      debugPrint('--- Error restoring data from Firestore: $e ---');
+      // Re-throw with a user-friendly message
+      if (e.toString().contains('permission') || e.toString().contains('PERMISSION_DENIED')) {
+        throw Exception('Permission denied: Please check your Firebase security rules. Make sure authenticated users can read their own data.');
+      } else if (e.toString().contains('network') || e.toString().contains('UNAVAILABLE')) {
+        throw Exception('Network error: Please check your internet connection and try again.');
+      } else {
+        throw Exception('Failed to restore data: ${e.toString()}');
+      }
     }
-
-    final categorySnap = await _firestore.collection('users').doc(userId).collection('categories').get();
-    for (final doc in categorySnap.docs) {
-      batch.insert('categories', doc.data(), conflictAlgorithm: ConflictAlgorithm.replace);
-    }
-
-    final billSnap = await _firestore.collection('users').doc(userId).collection('bills').get();
-    for (final doc in billSnap.docs) {
-      batch.insert('bills', doc.data(), conflictAlgorithm: ConflictAlgorithm.replace);
-    }
-
-    await batch.commit(noResult: true);
-    debugPrint('--- Successfully restored data from Firestore ---');
   }
 }
 
