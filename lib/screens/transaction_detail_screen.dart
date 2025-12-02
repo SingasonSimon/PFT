@@ -334,6 +334,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                       final int? dropdownValue = isValueValid ? _selectedCategoryId : null;
                       
                         return Container(
+                          key: ValueKey('dropdown_${_transactionType}_${categories.length}'),
                           decoration: BoxDecoration(
                             color: Colors.grey[50],
                             borderRadius: BorderRadius.circular(16),
@@ -387,10 +388,12 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                           return DropdownMenuItem<int>(
                             value: category.id,
                                 child: Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(icon, size: 20, color: Colors.grey[700]),
                                     const SizedBox(width: 12),
-                                    Expanded(
+                                    Flexible(
+                                      fit: FlexFit.loose,
                                       child: Text(
                                         category.name,
                                         overflow: TextOverflow.ellipsis,
@@ -423,12 +426,15 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                     child: IconButton(
                       icon: const Icon(Icons.add, color: Color(0xFF4CAF50)),
                       onPressed: (_isUpdating || _isDeleting) ? null : () async {
-                    await Navigator.of(context).push(
+                    final bool? updated = await Navigator.of(context).push<bool>(
                           MaterialPageRoute(
                             builder: (context) => const ManageCategoriesScreen(),
                           ),
                     );
-                    _loadCategories();
+                    // Always reload categories when returning from category management
+                    if (mounted) {
+                      _loadCategories();
+                    }
                   },
                       tooltip: 'Add Category',
                       iconSize: 28,

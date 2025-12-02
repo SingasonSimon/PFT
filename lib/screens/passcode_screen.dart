@@ -21,15 +21,52 @@ class PasscodeScreen extends StatefulWidget {
   State<PasscodeScreen> createState() => _PasscodeScreenState();
 }
 
-class _PasscodeScreenState extends State<PasscodeScreen> {
+class _PasscodeScreenState extends State<PasscodeScreen> with SingleTickerProviderStateMixin {
   final _pinController = TextEditingController();
   String? _pinToConfirm;
   late String _title;
+  late String _subtitle;
+  bool _hasError = false;
+  late AnimationController _shakeController;
+  late Animation<double> _shakeAnimation;
 
   @override
   void initState() {
     super.initState();
-    _title = widget.isSettingPasscode ? 'Create a New Passcode' : 'Enter Passcode';
+    _updateTitles();
+    _shakeController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+    _shakeAnimation = Tween<double>(begin: 0, end: 10).animate(
+      CurvedAnimation(parent: _shakeController, curve: Curves.elasticIn),
+    );
+  }
+
+  void _updateTitles() {
+    if (widget.isSettingPasscode) {
+      if (_pinToConfirm == null) {
+        _title = 'Create Passcode';
+        _subtitle = 'Enter a 4-digit passcode to secure your app';
+      } else {
+        _title = 'Confirm Passcode';
+        _subtitle = 'Re-enter your passcode to confirm';
+      }
+    } else {
+      _title = 'Enter Passcode';
+      _subtitle = 'Enter your 4-digit passcode to continue';
+    }
+  }
+
+  void _triggerShake() {
+    _shakeController.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _pinController.dispose();
+    _shakeController.dispose();
+    super.dispose();
   }
 
   void _onPinCompleted(String pin) async {
@@ -40,33 +77,50 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
     // This block is for SETTING a new passcode
     if (widget.isSettingPasscode) {
       if (savedPin != null && savedPin == pin) {
-        Fluttertoast.showToast(msg: 'New passcode cannot be the same as the old one.');
         setState(() {
+          _hasError = true;
           _pinToConfirm = null;
-          _title = 'Create a New Passcode';
           _pinController.clear();
         });
+        _updateTitles();
+        _triggerShake();
+        Fluttertoast.showToast(
+          msg: 'New passcode cannot be the same as the old one.',
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
         return;
       }
 
       if (_pinToConfirm == null) {
         setState(() {
           _pinToConfirm = pin;
-          _title = 'Confirm your Passcode';
+          _hasError = false;
           _pinController.clear();
         });
+        _updateTitles();
       } else {
         if (_pinToConfirm == pin) {
           await prefs.setString('passcode', pin);
-          Fluttertoast.showToast(msg: 'Passcode Set Successfully');
+          Fluttertoast.showToast(
+            msg: 'Passcode Set Successfully',
+            backgroundColor: const Color(0xFF4CAF50),
+            textColor: Colors.white,
+          );
           navigator.pop(true);
         } else {
-          Fluttertoast.showToast(msg: 'Passcodes do not match. Please try again.');
           setState(() {
+            _hasError = true;
             _pinToConfirm = null;
-            _title = 'Create a New Passcode';
             _pinController.clear();
           });
+          _updateTitles();
+          _triggerShake();
+          Fluttertoast.showToast(
+            msg: 'Passcodes do not match. Please try again.',
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+          );
         }
       }
     } 
@@ -84,9 +138,23 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
           navigator.pop(true);
         }
       } else {
-        Fluttertoast.showToast(msg: 'Incorrect Passcode');
         setState(() {
+          _hasError = true;
           _pinController.clear();
+        });
+        _triggerShake();
+        Fluttertoast.showToast(
+          msg: 'Incorrect Passcode',
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
+        // Reset error state after a delay
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            setState(() {
+              _hasError = false;
+            });
+          }
         });
       }
     }
@@ -95,43 +163,157 @@ class _PasscodeScreenState extends State<PasscodeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(_title),
-        // UPDATED: Hide the back button only when unlocking the app on startup
-        automaticallyImplyLeading: !widget.isAppUnlock,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: widget.isAppUnlock
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black87),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+        title: Text(
+          _title,
+          style: const TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        centerTitle: false,
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.lock_outline, size: 60),
-              const SizedBox(height: 20),
-              Text(
-                _title,
-                style: Theme.of(context).textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Icon Container with gradient background
+                  Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          const Color(0xFF4CAF50).withOpacity(0.2),
+                          const Color(0xFF4CAF50).withOpacity(0.1),
+                        ],
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.lock_outline_rounded,
+                      size: 60,
+                      color: Color(0xFF4CAF50),
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  
+                  // Title
+                  Text(
+                    _title,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                      letterSpacing: 0.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  // Subtitle
+                  Text(
+                    _subtitle,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                      height: 1.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 48),
+                  
+                  // Pin Code Fields with shake animation
+                  AnimatedBuilder(
+                    animation: _shakeAnimation,
+                    builder: (context, child) {
+                      return Transform.translate(
+                        offset: Offset(_shakeAnimation.value, 0),
+                        child: child,
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: PinCodeFields(
+                        controller: _pinController,
+                        length: 4,
+                        fieldBorderStyle: FieldBorderStyle.square,
+                        responsive: false,
+                        fieldHeight: 64.0,
+                        fieldWidth: 64.0,
+                        borderWidth: 2.5,
+                        activeBorderColor: _hasError 
+                            ? Colors.red 
+                            : const Color(0xFF4CAF50),
+                        borderRadius: BorderRadius.circular(16.0),
+                        keyboardType: TextInputType.number,
+                        autoHideKeyboard: false,
+                        obscureText: true,
+                        obscureCharacter: '●',
+                        borderColor: _hasError 
+                            ? Colors.red.shade300 
+                            : Colors.grey.shade300,
+                        onComplete: _onPinCompleted,
+                      ),
+                    ),
+                  ),
+                  
+                  // Error indicator
+                  if (_hasError) ...[
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          color: Colors.red,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          widget.isSettingPasscode 
+                              ? 'Passcodes do not match'
+                              : 'Incorrect passcode',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  
+                  const SizedBox(height: 40),
+                  
+                  // Helper text
+                  if (!widget.isSettingPasscode && !_hasError)
+                    Text(
+                      'Forgot your passcode?',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                ],
               ),
-              const SizedBox(height: 30),
-              PinCodeFields(
-                controller: _pinController,
-                length: 4,
-                fieldBorderStyle: FieldBorderStyle.square,
-                responsive: false,
-                fieldHeight: 50.0,
-                fieldWidth: 50.0,
-                borderWidth: 2.0,
-                activeBorderColor: Theme.of(context).colorScheme.primary,
-                borderRadius: BorderRadius.circular(10.0),
-                keyboardType: TextInputType.number,
-                autoHideKeyboard: false,
-                obscureText: true,
-                onComplete: _onPinCompleted,
-              ),
-            ],
+            ),
           ),
         ),
       ),
