@@ -31,12 +31,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isRestoring = false;
   String _selectedCurrency = 'KSh';
   bool _isPasscodeEnabled = false;
+  bool _isImageLoading = false;
+  String? _cachedImageUrl;
 
   @override
   void initState() {
     super.initState();
     _loadPreferences();
     _refreshUserData();
+    // Preload profile image immediately
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _preloadProfileImage();
+    });
+  }
+
+  Future<void> _preloadImage(String imageUrl) async {
+    if (_cachedImageUrl == imageUrl) return; // Already cached
+    
+    setState(() {
+      _isImageLoading = true;
+    });
+
+    try {
+      // Preload the image
+      final imageProvider = NetworkImage(imageUrl);
+      await imageProvider.resolve(const ImageConfiguration());
+      
+      if (mounted) {
+        setState(() {
+          _cachedImageUrl = imageUrl;
+          _isImageLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isImageLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _preloadProfileImage() async {
+    if (currentUser?.photoURL != null && currentUser!.photoURL!.isNotEmpty) {
+      String imageUrl = currentUser!.photoURL!;
+      // Optimize image URL
+      if (imageUrl.contains('cloudinary.com')) {
+        if (!imageUrl.contains('/upload/')) {
+          imageUrl = imageUrl.replaceAll('/upload/', '/upload/w_200,h_200,c_fill,q_auto,f_auto/');
+        } else if (!imageUrl.contains('w_')) {
+          final parts = imageUrl.split('/upload/');
+          if (parts.length == 2) {
+            imageUrl = '${parts[0]}/upload/w_200,h_200,c_fill,q_auto,f_auto/${parts[1]}';
+          }
+        }
+      }
+      await _preloadImage(imageUrl);
+    }
   }
 
   Future<void> _refreshUserData() async {
@@ -45,6 +96,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await currentUser!.reload();
       if (mounted) {
         setState(() {});
+        // Preload image after refresh
+        _preloadProfileImage();
       }
     }
   }
@@ -90,8 +143,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // Update photo URL in Firebase Auth
         await currentUser!.updatePhotoURL(imageUrl);
         
+        // Preload the new image immediately
+        await _preloadImage(imageUrl);
+        
         // Wait for Firebase to process the update
-        await Future.delayed(const Duration(milliseconds: 800));
+        await Future.delayed(const Duration(milliseconds: 500));
         
         // Reload user to get updated photo URL from Firebase
         await currentUser!.reload();
@@ -106,6 +162,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final finalUser = _auth.currentUser;
           
           if (mounted) {
+            // Preload the image again to ensure it's cached
+            if (finalUser?.photoURL != null) {
+              await _preloadImage(finalUser!.photoURL!);
+            }
             // The StreamBuilder will automatically update the UI
             if (finalUser?.photoURL == imageUrl || finalUser?.photoURL != null) {
               SnackbarHelper.showSuccess(context, 'Profile picture updated successfully!');
@@ -369,6 +429,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       stream: _auth.userChanges(),
       builder: (context, userSnapshot) {
         final user = userSnapshot.data ?? currentUser;
+        
+        // Preload image when user data changes
+        if (user?.photoURL != null && user!.photoURL!.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _preloadProfileImage();
+          });
+        }
 
     return Scaffold(
           backgroundColor: Colors.white,
@@ -718,49 +785,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
 
-    return CircleAvatar(
-      radius: 50,
-      backgroundColor: const Color(0xFF4CAF50).withOpacity(0.1),
-      child: ClipOval(
-        child: Image.network(
-          imageUrl,
-          width: 100,
-          height: 100,
-          fit: BoxFit.cover,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) {
-              return child;
-            }
-            return Container(
+    final isLoading = _isImageLoading && _cachedImageUrl != imageUrl;
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // Circular progress indicator as border
+        if (isLoading)
+          SizedBox(
+            width: 104,
+            height: 104,
+            child: CircularProgressIndicator(
+              strokeWidth: 4,
+              valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFF4CAF50)),
+              backgroundColor: Colors.grey.shade200,
+            ),
+          ),
+        // Avatar with image
+        CircleAvatar(
+          radius: 50,
+          backgroundColor: const Color(0xFF4CAF50).withOpacity(0.1),
+          child: ClipOval(
+            child: Image.network(
+              imageUrl,
               width: 100,
               height: 100,
-              decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  value: loadingProgress.expectedTotalBytes != null
-                      ? loadingProgress.cumulativeBytesLoaded /
-                          loadingProgress.expectedTotalBytes!
-                      : null,
-                  color: const Color(0xFF4CAF50),
-                ),
-              ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            return CircleAvatar(
-              radius: 50,
-              backgroundColor: const Color(0xFF4CAF50).withOpacity(0.1),
-              child: const Icon(Icons.person, size: 50, color: Color(0xFF4CAF50)),
-            );
-          },
-          cacheWidth: 200, // Cache optimized size
-          cacheHeight: 200,
+              fit: BoxFit.cover,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null && !isLoading) {
+                  return child;
+                }
+                // Show placeholder while loading
+                return Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4CAF50).withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.person, size: 50, color: Color(0xFF4CAF50)),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return CircleAvatar(
+                  radius: 50,
+                  backgroundColor: const Color(0xFF4CAF50).withOpacity(0.1),
+                  child: const Icon(Icons.person, size: 50, color: Color(0xFF4CAF50)),
+                );
+              },
+              cacheWidth: 200, // Cache optimized size
+              cacheHeight: 200,
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 
