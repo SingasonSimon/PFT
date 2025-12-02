@@ -77,7 +77,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final bool? confirm = await DialogHelper.showConfirmDialog(
       context: context,
       title: 'Clear Cache',
-      message: 'This will clear all cached images and temporary files. This may free up storage space. Continue?',
+      message: 'This will clear all cached images and temporary files. Your data will not be affected. Continue?',
       confirmText: 'Clear',
       confirmColor: Colors.orange,
     );
@@ -86,11 +86,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() => _isClearingCache = true);
       try {
         await CacheHelper.clearAllCache();
+        // Wait a moment for file system to update
+        await Future.delayed(const Duration(milliseconds: 300));
         await _loadCacheSize(); // Refresh cache size
         if (mounted) {
           SnackbarHelper.showSuccess(context, 'Cache cleared successfully!');
         }
       } catch (e) {
+        debugPrint('Error clearing cache: $e');
         if (mounted) {
           SnackbarHelper.showError(context, 'Error clearing cache: $e');
         }
